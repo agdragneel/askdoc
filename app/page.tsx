@@ -234,7 +234,7 @@ export default function Home() {
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
-            File Upload & Gemini LLM
+            File Upload & AskDoc
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
             Upload your documents and ask questions about their contents
@@ -264,7 +264,7 @@ export default function Home() {
                 disabled={isLoading}
                 className="self-start"
               >
-                {isLoading ? "Processing..." : "Ask Gemini"}
+                {isLoading ? "Processing..." : "Ask"}
               </Button>
             </div>
           </div>
@@ -272,7 +272,7 @@ export default function Home() {
           {answer && (
             <div className="space-y-2 mt-6">
               <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                Gemini's Response
+                Response
               </h3>
               <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border">
                 <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300">
