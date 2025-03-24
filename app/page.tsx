@@ -234,10 +234,10 @@ export default function Home() {
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
-            File Upload & AskDoc
+            AI Agents for your Assignments!
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Upload your documents and ask questions about their contents
+            Upload your assignment and let the agents do their magic
           </p>
         </div>
 
