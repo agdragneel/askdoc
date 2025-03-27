@@ -25,6 +25,7 @@ type Chat = {
 };
 
 export default function Home() {
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
@@ -69,6 +70,13 @@ export default function Home() {
     setIsCreatingNewChat(true);
   };
 
+  
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
   const selectChat = async (chat: Chat) => {
     setSelectedChat(chat);
     setIsCreatingNewChat(false);
@@ -111,28 +119,33 @@ export default function Home() {
   };
 
   const handleFilesProcessed = async (processedFiles: UploadedFile[]) => {
-    setFiles(processedFiles);
-    if (processedFiles.length > 0 && user) {
-      const title = await generateTitle(
-        processedFiles[0].name,
-        processedFiles[0].content
-      );
-      
-      const { data } = await supabase
-        .from("chats")
-        .insert([{
-          title,
-          user_id: user.id,
-          files: processedFiles[0].content
-        }])
-        .select()
-        .single();
-
-      if (data) {
-        setChats(prev => [data, ...prev]);
-        setSelectedChat(data);
-        setIsCreatingNewChat(false);
+    setIsProcessingFile(true); // Start processing
+    try {
+      setFiles(processedFiles);
+      if (processedFiles.length > 0 && user) {
+        const title = await generateTitle(
+          processedFiles[0].name,
+          processedFiles[0].content
+        );
+        
+        const { data } = await supabase
+          .from("chats")
+          .insert([{
+            title,
+            user_id: user.id,
+            files: processedFiles[0].content
+          }])
+          .select()
+          .single();
+  
+        if (data) {
+          setChats(prev => [data, ...prev]);
+          setSelectedChat(data);
+          setIsCreatingNewChat(false);
+        }
       }
+    } finally {
+      setIsProcessingFile(false); // End processing
     }
   };
 
@@ -277,37 +290,73 @@ export default function Home() {
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
       <div className="w-64 bg-white dark:bg-gray-800 border-r p-4 flex flex-col">
-        <Button onClick={createNewChat} className="mb-4">
-          <Plus className="mr-2" /> New Chat
-        </Button>
-        <div className="overflow-y-auto flex-1">
-          {chats.map(chat => (
-            <div key={chat.id} className="group relative">
-              <Button
-                variant="ghost"
-                onClick={() => selectChat(chat)}
-                className={`w-full justify-start ${selectedChat?.id === chat.id ? "bg-gray-100" : ""}`}
-              >
-                <span className="truncate">{chat.title}</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-1 opacity-0 group-hover:opacity-100"
-                onClick={() => deleteChat(chat.id)}
-              >
-                <Trash2 className="h-4 w-4 text-red-500" />
-              </Button>
-            </div>
-          ))}
+        <div className="flex-1">
+          <Button onClick={createNewChat} className="mb-4 w-full">
+            <Plus className="mr-2 h-4 w-4" /> New Chat
+          </Button>
+          <div className="overflow-y-auto h-[calc(100vh-180px)]">
+            {chats.map(chat => (
+              <div key={chat.id} className="group relative">
+                <Button
+                  variant="ghost"
+                  onClick={() => selectChat(chat)}
+                  className={`w-full justify-start text-left ${
+                    selectedChat?.id === chat.id 
+                      ? "bg-gray-100 dark:bg-gray-700" 
+                      : "hover:bg-gray-50 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  <span className="truncate">{chat.title}</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-1 opacity-0 group-hover:opacity-100"
+                  onClick={() => deleteChat(chat.id)}
+                >
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
+        
+        {/* Logout Button */}
+        <Button 
+          onClick={handleLogout}
+          variant="ghost" 
+          className="mt-auto border-t pt-4 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-none"
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            className="h-5 w-5 mr-2" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+          </svg>
+          Logout
+        </Button>
       </div>
-
+  
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {selectedChat ? (
-          <div className="flex-1 flex flex-col p-4">
-            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+          <div className="flex-1 flex flex-col">
+            {/* Chat Header */}
+            <div className="p-4 border-b bg-white dark:bg-gray-800">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                {selectedChat.title}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Created {new Date(selectedChat.created_at).toLocaleDateString()}
+              </p>
+            </div>
+            
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -317,50 +366,100 @@ export default function Home() {
                     className={`max-w-xl p-3 rounded-lg ${
                       msg.role === "user" 
                         ? "bg-blue-500 text-white" 
-                        : "bg-gray-200 dark:bg-gray-700"
+                        : "bg-white dark:bg-gray-800 border dark:border-gray-700"
                     }`}
                   >
-                    {msg.content}
+                    <p className="text-sm">{msg.content}</p>
+                    <p className="text-xs mt-1 opacity-70">
+                      {new Date(msg.created_at).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </p>
                   </div>
                 </div>
               ))}
               <div ref={chatEndRef} />
             </div>
-
-            <div className="border-t pt-4">
-              <div className="flex gap-2">
+  
+            {/* Input Area */}
+            <div className="border-t bg-white dark:bg-gray-800 p-4">
+              <div className="flex gap-2 max-w-4xl mx-auto">
                 <div
                   ref={inputRef}
                   contentEditable
-                  onInput={(e) => setQuestion(e.currentTarget.textContent || "")}
+                  onInput={(e) => {
+                    const text = e.currentTarget.textContent || "";
+                    setQuestion(text);
+                    e.currentTarget.classList.toggle('empty', !text);
+                  }}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 border rounded-lg p-2 bg-white dark:bg-gray-800 focus:outline-none"
+                  className="flex-1 border rounded-lg p-2 bg-white dark:bg-gray-700 focus:outline-none
+                             min-h-[44px] max-h-32 overflow-y-auto relative empty:before:content-[attr(placeholder)] empty:before:text-gray-400 empty:before:dark:text-gray-500 empty:before:absolute empty:before:top-2 empty:before:left-2 empty:before:pointer-events-none"
+                  placeholder="Type your question here..."
                   suppressContentEditableWarning={true}
                 />
-                <Button onClick={askGemini} disabled={isLoading}>
-                  {isLoading ? <Loader2 className="animate-spin" /> : "Send"}
+                <Button 
+                  onClick={askGemini} 
+                  disabled={isLoading}
+                  className="h-[44px]"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                    </svg>
+                  )}
                 </Button>
               </div>
             </div>
           </div>
         ) : isCreatingNewChat ? (
-          <div className="flex-1 flex items-center justify-center">
-            <FileUpload
-              onFilesProcessed={handleFilesProcessed}
-              maxFileSize={20 * 1024 * 1024}
-              acceptedFileTypes={[".pdf", ".txt", ".doc", ".docx"]}
-            />
+          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+            {isProcessingFile ? (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <p className="text-gray-600 dark:text-gray-400">Processing your files...</p>
+              </div>
+            ) : (
+              <FileUpload
+                onFilesProcessed={handleFilesProcessed}
+                maxFileSize={20 * 1024 * 1024}
+                acceptedFileTypes={[".pdf", ".txt", ".doc", ".docx"]}
+              />
+            )}
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-4">
-            <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
-              AI Assignment Assistant
-            </h1>
-            <p className="text-lg text-gray-600 dark:text-gray-400">
-              Upload your notes and assignments to get started!
-            </p>
-            <Button onClick={createNewChat}>
-              <Plus className="mr-2" /> Start New Chat
+          <div className="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-4 bg-gray-50 dark:bg-gray-900">
+            {/* User Greeting */}
+            <div className="space-y-2 mb-8">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                Hi{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name}` : ''}!
+              </h2>
+              <p className="text-lg text-gray-600 dark:text-gray-400">How can I help you today?</p>
+            </div>
+  
+            <div className="space-y-2">
+              <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
+                AI Assignment Assistant
+              </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400">
+                Upload your notes and assignments to get started!
+              </p>
+            </div>
+            <Button 
+              onClick={createNewChat}
+              className="px-8 py-4 text-lg"
+            >
+              <Plus className="mr-2 h-5 w-5" /> Start New Chat
             </Button>
           </div>
         )}
