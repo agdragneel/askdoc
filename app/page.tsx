@@ -130,48 +130,18 @@
 //   );
 // }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import { FileUpload } from "@/components/file-upload";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { UploadedFile } from "@/lib/types";
+import { User } from "@supabase/supabase-js";
 
 export default function Home() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -179,6 +149,34 @@ export default function Home() {
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch API Key from .env.local
+  const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+
+  // Check user authentication
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data?.user) {
+        router.push("/login"); // Redirect to login if not authenticated
+      } else {
+        setUser(data.user);
+      }
+      setLoading(false);
+    };
+
+    checkUser();
+  }, [router]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login"); // Redirect to login page
+  };
+
+  if (loading) return <p>Loading...</p>; // Show loader while checking auth
 
   const handleFilesProcessed = (processedFiles: UploadedFile[]) => {
     setFiles(processedFiles);
@@ -205,19 +203,24 @@ export default function Home() {
 
     setIsLoading(true);
     try {
-      const fileContents = files.map(file => file.content).join("\n\n");
+      const fileContents = files.map((file) => file.content).join("\n\n");
       const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyBa86IKDswZ1Q7bPSs3U6f_kszZowXVNrk",
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: fileContents + "\nQuestion: " + question }] }],
+            contents: [
+              { parts: [{ text: fileContents + "\nQuestion: " + question }] },
+            ],
           }),
         }
       );
       const data = await response.json();
-      setAnswer(data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Gemini");
+      setAnswer(
+        data.candidates?.[0]?.content?.parts?.[0]?.text ||
+          "No response from Gemini"
+      );
     } catch (error) {
       toast({
         title: "Error",
@@ -232,6 +235,19 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
+        {/* Header with User Greeting and Logout */}
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 ml-128">
+            Hello, {user?.user_metadata?.full_name || "User"}!
+          </h2>
+          <Button
+            onClick={handleLogout}
+            className="bg-black text-white dark:bg-gray-200 dark:text-black hover:bg-gray-900 dark:hover:bg-gray-300 font-bold px-6 py-2 mr-4 transition-colors"
+          >
+            Logout
+          </Button>
+        </div>
+
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
             AI Agents for your Assignments!
