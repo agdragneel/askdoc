@@ -17,6 +17,7 @@ export default function Home() {
   const [question, setQuestion] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [chatId, setChatId] = useState<string | null>(null); // Store chat ID
   const { toast } = useToast();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -25,6 +26,7 @@ export default function Home() {
   const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
+  const AI_UUID = "0cd14dbe-4e88-442b-8ca8-d32c3641c417"
 
   useEffect(() => {
     const checkUser = async () => {
@@ -48,75 +50,188 @@ export default function Home() {
     router.push("/login");
   };
 
-  const handleFilesProcessed = (processedFiles: UploadedFile[]) => {
+  const handleFilesProcessed = async (processedFiles: UploadedFile[]) => {
     setFiles(processedFiles);
     setFilesProcessed(true);
+  
+    if (processedFiles.length > 0) {
+      const file = processedFiles[0];
+      const generatedTitle = await generateTitle(file.name, file.content);
+      console.log("Generated Chat Title:", generatedTitle);
+    }
   };
 
-  async function askGemini() {
-    if (!files.length) {
-      toast({
-        title: "No files processed",
-        description: "Please upload and process files first",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!question.trim()) {
-      toast({
-        title: "No question provided",
-        description: "Please enter a question",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
+  async function updateChatHistory(chatId: string, newMessage: { role: string; text: string }) {
     try {
-      const fileContents = files.map((file) => file.content).join("\n\n");
-      const conversationHistory = messages.map((m) => m.text).join("\n");
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `${fileContents}\n\nChat History:\n${conversationHistory}\n${question}`,
-                  },
-                ],
-              },
-            ],
-          }),
-        }
-      );
-
-      const data = await response.json();
-      const botResponse =
-        data.candidates?.[0]?.content?.parts?.[0]?.text ||
-        "No response from Gemini";
-
-      setMessages([
-        ...messages,
-        { role: "User", text: question },
-        { role: "AI", text: botResponse },
-      ]);
-
-      setQuestion("");
-      if (inputRef.current) inputRef.current.innerText = ""; // Clear the input field
+      // First, get the current chat history
+      const { data: chatData, error: chatError } = await supabase
+        .from('chats')
+        .select('chathistory')
+        .eq('id', chatId)
+        .single();
+  
+      if (chatError) throw chatError;
+  
+      // Format the new message
+      const formattedMessage = `${newMessage.role}:${newMessage.text}`;
+      
+      // Update the chat history (append the new message)
+      const updatedHistory = chatData.chathistory 
+        ? `${chatData.chathistory}\n${formattedMessage}`
+        : formattedMessage;
+  
+      // Update the database
+      const { error: updateError } = await supabase
+        .from('chats')
+        .update({ chathistory: updatedHistory })
+        .eq('id', chatId);  
+  
+      if (updateError) throw updateError;
+  
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to get response from Gemini",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+      console.error('Error updating chat history:', error);
     }
+  }
+
+  async function askGemini() {
+  if (!files.length) {
+    toast({
+      title: "No files processed",
+      description: "Please upload and process files first",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  if (!question.trim()) {
+    toast({
+      title: "No question provided",
+      description: "Please enter a question",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    let currentChatId = chatId;
+    const fileContents = files.map((file) => file.content).join("\n\n");
+    // If no chat exists, create one
+    if (!currentChatId) {
+      const file = files[0]; 
+      const chatTitle = await generateTitle(file.name, file.content);
+
+      const { data: newChat, error: chatError } = await supabase
+        .from("chats")
+        .insert([{ title: chatTitle, user_id: user?.id, files:fileContents,chathistory: ""  }])
+        .select()
+        .single();
+
+      if (chatError) {
+        console.error("Error creating chat:", chatError);
+        throw chatError;
+      }
+
+      currentChatId = newChat.id;
+      setChatId(newChat.id);
+    }
+
+    // Save user's message
+    const { error: messageError } = await supabase.from("messages").insert([
+      { chat_id: currentChatId, user_id: user?.id, role: "User", text: question },
+    ]);
+
+    if (messageError) {
+      console.error("Error saving message:", messageError);
+      throw messageError;
+    }
+
+    if (currentChatId) {  // This checks for null/undefined
+      await updateChatHistory(currentChatId, { role: "User", text: question });
+    }
+
+    // Generate AI response
+    
+    const conversationHistory = messages.map((m) => m.text).join("\n");
+    console.log(conversationHistory);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `${fileContents}\n\nChat History:\n${conversationHistory}\n${question}`,
+                },
+              ],
+            },
+          ],
+        }),
+      }
+    );
+
+    const data = await response.json();
+    const botResponse =
+      data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Gemini";
+
+    // Save AI response
+    await supabase.from("messages").insert([
+      { chat_id: currentChatId, user_id: AI_UUID, role: "AI", text: botResponse },
+    ]);
+
+    if (currentChatId) {  // This checks for null/undefined
+      await updateChatHistory(currentChatId, { role: "AI", text: botResponse });
+    }
+
+    setMessages([
+      ...messages,
+      { role: "User", text: question },
+      { role: "AI", text: botResponse },
+    ]);
+
+    setQuestion("");
+    if (inputRef.current) inputRef.current.innerText = ""; // Clear input field
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: "Something went wrong while processing your request.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+}
+
+  async function generateTitle(fileName: string, fileContent: string): Promise<string> {
+    const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Generate a concise and relevant title for a chat based on this file: "${fileName}". 
+                  File Content (only use it if necessary): "${fileContent.slice(0, 500)}". 
+                  Only return the title, nothing else.`,
+                },
+              ],
+            },
+          ],
+        }),
+      }
+    );
+  
+    const data = await response.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text || "Untitled Chat";
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
