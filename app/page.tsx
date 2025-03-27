@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { UploadedFile } from "@/lib/types";
 import { User } from "@supabase/supabase-js";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Message = {
   id: string;
@@ -294,7 +296,7 @@ export default function Home() {
           <Button onClick={createNewChat} className="mb-4 w-full">
             <Plus className="mr-2 h-4 w-4" /> New Chat
           </Button>
-          <div className="overflow-y-auto h-[calc(100vh-180px)]">
+          <div className="overflow-y-auto h-[calc(100vh-180px)] scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
             {chats.map(chat => (
               <div key={chat.id} className="group relative">
                 <Button
@@ -342,10 +344,10 @@ export default function Home() {
       </div>
   
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col h-screen">
         {selectedChat ? (
-          <div className="flex-1 flex flex-col">
-            {/* Chat Header */}
+          <div className="flex flex-col h-full">
+            {/* Chat Header - Fixed height */}
             <div className="p-4 border-b bg-white dark:bg-gray-800">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {selectedChat.title}
@@ -355,34 +357,47 @@ export default function Home() {
               </p>
             </div>
             
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                >
+            {/* Chat Messages - Scrollable area */}
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
+              <div className="p-4 space-y-4 min-h-full">
+                {messages.map((msg) => (
                   <div
-                    className={`max-w-xl p-3 rounded-lg ${
+                    key={msg.id}
+                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div className={`max-w-xl p-3 rounded-lg prose dark:prose-invert ${
                       msg.role === "user" 
                         ? "bg-blue-500 text-white" 
                         : "bg-white dark:bg-gray-800 border dark:border-gray-700"
-                    }`}
-                  >
-                    <p className="text-sm">{msg.content}</p>
-                    <p className="text-xs mt-1 opacity-70">
-                      {new Date(msg.created_at).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </p>
+                    }`}>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                          em: ({node, ...props}) => <em className="italic" {...props} />,
+                          p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                          ul: ({node, ...props}) => <ul className="list-disc pl-4" {...props} />,
+                          ol: ({node, ...props}) => <ol className="list-decimal pl-4" {...props} />,
+                          li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                          code: ({node, ...props}) => <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded" {...props} />
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                      <p className="text-xs mt-2 opacity-70">
+                        {new Date(msg.created_at).toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
-              <div ref={chatEndRef} />
+                ))}
+                <div ref={chatEndRef} />
+              </div>
             </div>
   
-            {/* Input Area */}
+            {/* Input Area - Fixed bottom */}
             <div className="border-t bg-white dark:bg-gray-800 p-4">
               <div className="flex gap-2 max-w-4xl mx-auto">
                 <div
