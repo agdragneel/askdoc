@@ -1,6 +1,6 @@
 "use client";
 import { supabase } from "@/lib/supabaseClient";
-import { FcGoogle } from "react-icons/fc"; // Google icon
+
 
 export default function Login() {
   const signInWithGoogle = async () => {
@@ -23,7 +23,7 @@ export default function Login() {
           onClick={signInWithGoogle}
           className="flex items-center justify-center gap-2 mt-6 w-full px-4 py-2 border-2 border-blue-500 text-blue-500 bg-white hover:bg-blue-100 rounded-full shadow-md transition"
         >
-          <FcGoogle className="text-xl" />
+          
           Sign in with Google
         </button>
       </div>
