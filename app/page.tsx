@@ -571,12 +571,17 @@ export default function Home() {
     }
   };
 
-  const generateAnswerForQuestion = async (question: string) => {
+  const generateSearchQueryForQuestion = async (question: string): Promise<string> => {
     try {
-      // Build context only for the currently selected chat
+      // Build the current chat context
       const context = buildChatContext();
-      const prompt = `You are a helpful homework solver. You will solve the questions and answer it, while sounding human. Do NOT include pleasantries like "Okay", "I can help with that", or other things in the answer. Go straight to the answer.Given the following context:\n${context}\n\nPlease provide a detailed, accurate answer to the following question:\n\n${question}`;
-
+      const prompt = `Given the following conversation context:
+  ${context}
+  
+  Generate an effective Google search query to find detailed and accurate information for answering the question:
+  ${question}
+  
+  Return only the search query text.`;
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
         {
@@ -585,25 +590,83 @@ export default function Home() {
           body: JSON.stringify({
             contents: [
               {
-                parts: [
-                  {
-                    text: prompt,
-                  },
-                ],
+                parts: [{ text: prompt }],
               },
             ],
           }),
         }
       );
+      const data = await response.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || question;
+    } catch (error) {
+      console.error("Search query generation failed:", error);
+      return question;
+    }
+  };
+  
 
+  const generateAnswerForQuestion = async (question: string) => {
+    try {
+      // Build base context from current chat
+      let context = buildChatContext();
+  
+      // Generate a tailored search query using Gemini that takes context into account
+      const searchQuery = await generateSearchQueryForQuestion(question);
+  
+      // Query Google Custom Search with the generated query
+      const googleSearchUrl = `https://www.googleapis.com/customsearch/v1?key=${process.env.NEXT_PUBLIC_GOOGLE_SEARCH_API_KEY}&cx=${process.env.NEXT_PUBLIC_GOOGLE_CSE_ID}&q=${encodeURIComponent(searchQuery)}`;
+      const googleResponse = await fetch(googleSearchUrl);
+      const googleData = await googleResponse.json();
+  
+      let searchResultsContext = "";
+      if (googleData && googleData.items) {
+        // Summarize the top 3 results (title and snippet)
+        searchResultsContext = googleData.items
+          .slice(0, 3)
+          .map((item: any) => `${item.title}: ${item.snippet}`)
+          .join("\n\n");
+      }
+
+      console.log(searchResultsContext);
+  
+      // Append the search results context to the existing chat context
+      context += `\n\nAdditional Context from Google Search (query used: "${searchQuery}"):\n${searchResultsContext}`;
+  
+      // Build final prompt with enriched context
+      const prompt = `You are a helpful homework solver. Solve the question using the context below. Do NOT include pleasantries like "Okay" or "I can help with that" – go straight to the answer. Provide full sentences, do not say words only. For example, if the question is "Who is the author?", the answer should be "The name of the author is <AuthorName>".
+  
+  Context:
+  ${context}
+  
+  Question:
+  ${question}`;
+  
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [{ text: prompt }],
+              },
+            ],
+          }),
+        }
+      );
       const data = await response.json();
       return (
         data.candidates?.[0]?.content?.parts?.[0]?.text || "No answer available"
       );
     } catch (error) {
+      console.error("Error generating answer:", error);
       return "Failed to generate answer";
     }
   };
+  
+  
+  
 
   // HTML PART//
 
