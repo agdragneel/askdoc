@@ -6,7 +6,7 @@ import { formatFileSize, generateId } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileUp, X, Loader2 } from "lucide-react";
+import { FileUp, X, Loader2, ClipboardList } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 interface FileUploadProps {
@@ -155,6 +155,8 @@ export function FileUpload({
     });
   };
 
+
+  // -------------------------------HTML Part--------------------------------------------------------------------//
   return (
     <Card className="p-6">
       <div
