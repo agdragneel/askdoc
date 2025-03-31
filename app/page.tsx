@@ -18,7 +18,6 @@ import remarkGfm from "remark-gfm";
 import {
   generateChatResponse,
   extractQuestionsFromText,
-  generateSearchQuery,
   generateAnswerWithWebSearch
 } from "@/lib/gemini";
 
