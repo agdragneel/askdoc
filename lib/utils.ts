@@ -16,3 +16,18 @@ export function formatFileSize(bytes: number): string {
 export function generateId(): string {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
+
+export const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      if (dataUrl.includes(",")) {
+        resolve(dataUrl.split(",")[1]);
+      }
+      reject(new Error("Invalid data URL format."));
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};

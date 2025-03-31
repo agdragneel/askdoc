@@ -5,35 +5,24 @@ import { supabase } from "@/lib/supabaseClient";
 import { FileUpload } from "@/components/file-upload";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { UploadedFile } from "@/lib/types";
+import { UploadedFile, Message, Chat } from "@/lib/types";
 import { User } from "@supabase/supabase-js";
 import { Loader2, Plus, Trash2, ClipboardList } from "lucide-react";
 import { extractTextFromPDF } from "@/lib/pdf-utils";
 import { jsPDF } from "jspdf";
-import { saveAs } from "file-saver";
+import { blobToBase64 } from "@/lib/utils";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-type Message = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  created_at: string;
-  attachments?: {
-    type: string;
-    data: string;
-    name: string;
-  }[];
-};
+import {
+  generateChatResponse,
+  extractQuestionsFromText,
+  generateSearchQuery,
+  generateAnswerWithWebSearch
+} from "@/lib/gemini";
 
-type Chat = {
-  id: string;
-  created_at: string;
-  title: string;
-  files: string;
-  user_id: string;
-};
+
 
 export default function Home() {
   const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -188,24 +177,6 @@ export default function Home() {
     if (error) throw error;
   }
 
-  async function blobToBase64(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        // Ensure there is a comma and take the part after it.
-        if (dataUrl && dataUrl.includes(",")) {
-          const base64 = dataUrl.split(",")[1];
-          resolve(base64);
-        } else {
-          reject(new Error("Invalid data URL format."));
-        }
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  }
-
   const buildChatContext = () => {
     const fileContents = files.map((f) => f.content).join("\n\n");
     const conversationHistory = messages
@@ -217,11 +188,11 @@ export default function Home() {
 
   const askGemini = useCallback(async () => {
     if (!question.trim() || !user) return;
-
+  
     setIsLoading(true);
     try {
       let chatId = selectedChat?.id;
-
+  
       // Create new chat if needed
       if (!chatId) {
         const fileContents = files.map((f) => f.content).join("\n\n");
@@ -236,16 +207,16 @@ export default function Home() {
           ])
           .select()
           .single();
-
+  
         if (data) {
           chatId = data.id;
           setChats((prev) => [data, ...prev]);
           setSelectedChat(data);
         }
       }
-
+  
       if (!chatId) throw new Error("Chat creation failed");
-
+  
       // Save user message
       await saveMessage(chatId, "user", question);
       setMessages((prev) => [
@@ -257,34 +228,13 @@ export default function Home() {
           created_at: new Date().toISOString(),
         },
       ]);
-
+  
       // Build context
       const context = buildChatContext();
-
-      // Get AI response
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `${context}\nUser: ${question}`,
-                  },
-                ],
-              },
-            ],
-          }),
-        }
-      );
-
-      const data = await response.json();
-      const botResponse =
-        data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
-
+  
+      // Get AI response using service function
+      const botResponse = await generateChatResponse(context, question);
+  
       // Save AI response
       await saveMessage(chatId, "assistant", botResponse);
       setMessages((prev) => [
@@ -296,7 +246,7 @@ export default function Home() {
           created_at: new Date().toISOString(),
         },
       ]);
-
+  
       setQuestion("");
       if (inputRef.current) inputRef.current.innerText = "";
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -309,7 +259,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [question, files, messages, user, API_KEY, toast, selectedChat]);
+  }, [question, files, messages, user, toast, selectedChat]);
 
   const generateTitle = async (fileName: string, content: string) => {
     const response = await fetch(
@@ -534,131 +484,15 @@ export default function Home() {
     });
   };
 
-  const extractQuestionsFromContent = async (
-    content: string
-  ): Promise<string[]> => {
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: `Extract and list all individual questions from this text exactly as they appear. Return only the questions numbered in markdown format:\n\n${content.slice(
-                      0,
-                      3000
-                    )}`,
-                  },
-                ],
-              },
-            ],
-          }),
-        }
-      );
-
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      return text
-        .split("\n")
-        .filter((line: string) => /^\d+\./.test(line))
-        .map((q: string) => q.replace(/^\d+\.\s*/, ""));
-    } catch (error) {
-      throw new Error("Failed to extract questions");
-    }
+  const extractQuestionsFromContent = async (content: string) => {
+    return extractQuestionsFromText(content);
   };
 
-  const generateSearchQueryForQuestion = async (question: string): Promise<string> => {
-    try {
-      // Build the current chat context
-      const context = buildChatContext();
-      const prompt = `Given the following conversation context:
-  ${context}
   
-  Generate an effective Google search query to find detailed and accurate information for answering the question:
-  ${question}
-  
-  Return only the search query text.`;
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: prompt }],
-              },
-            ],
-          }),
-        }
-      );
-      const data = await response.json();
-      return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || question;
-    } catch (error) {
-      console.error("Search query generation failed:", error);
-      return question;
-    }
-  };
-  
-
   const generateAnswerForQuestion = async (question: string) => {
     try {
-      // Build base context from current chat
-      let context = buildChatContext();
-  
-      // Generate a tailored search query using Gemini that takes context into account
-      const searchQuery = await generateSearchQueryForQuestion(question);
-  
-      // Query Google Custom Search with the generated query
-      const googleSearchUrl = `https://www.googleapis.com/customsearch/v1?key=${process.env.NEXT_PUBLIC_GOOGLE_SEARCH_API_KEY}&cx=${process.env.NEXT_PUBLIC_GOOGLE_CSE_ID}&q=${encodeURIComponent(searchQuery)}`;
-      const googleResponse = await fetch(googleSearchUrl);
-      const googleData = await googleResponse.json();
-  
-      let searchResultsContext = "";
-      if (googleData && googleData.items) {
-        // Summarize the top 3 results (title and snippet)
-        searchResultsContext = googleData.items
-          .slice(0, 3)
-          .map((item: any) => `${item.title}: ${item.snippet}`)
-          .join("\n\n");
-      }
-
-      console.log(searchResultsContext);
-  
-      // Append the search results context to the existing chat context
-      context += `\n\nAdditional Context from Google Search (query used: "${searchQuery}"):\n${searchResultsContext}`;
-  
-      // Build final prompt with enriched context
-      const prompt = `You are a helpful homework solver. Solve the question using the context below. Do NOT include pleasantries like "Okay" or "I can help with that" – go straight to the answer. Provide full sentences, do not say words only. For example, if the question is "Who is the author?", the answer should be "The name of the author is <AuthorName>".
-  
-  Context:
-  ${context}
-  
-  Question:
-  ${question}`;
-  
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: prompt }],
-              },
-            ],
-          }),
-        }
-      );
-      const data = await response.json();
-      return (
-        data.candidates?.[0]?.content?.parts?.[0]?.text || "No answer available"
-      );
+      const context = buildChatContext();
+      return generateAnswerWithWebSearch(context, question);
     } catch (error) {
       console.error("Error generating answer:", error);
       return "Failed to generate answer";
