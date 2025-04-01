@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileUp, X, Loader2, ClipboardList } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import mammoth from "mammoth";
 
 interface FileUploadProps {
   onFilesProcessed: (files: UploadedFile[]) => void;
@@ -147,12 +148,25 @@ export function FileUpload({
   };
 
   const extractTextFromTextOrDoc = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsText(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-    });
+    try {
+      // Handle DOCX files
+      if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        return result.value;
+      }
+      
+      // Handle text files and legacy Word docs
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsText(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+    } catch (error) {
+      console.error("Error extracting text:", error);
+      throw new Error("Failed to extract text from file");
+    }
   };
 
   // -------------------------------HTML Part--------------------------------------------------------------------//

@@ -12,6 +12,7 @@ import { extractTextFromPDF } from "@/lib/pdf-utils";
 import { jsPDF } from "jspdf";
 import { blobToBase64 } from "@/lib/utils";
 import { motion } from "framer-motion";
+import mammoth from "mammoth";
 import { Sidebar } from "@/components/sidebar";
 import { MessageBubble } from "@/components/message-bubble";
 import { Document, Packer, Paragraph, TextRun } from "docx";
@@ -480,16 +481,30 @@ export default function Home() {
 
   // Helper functions
   const readFileContent = async (file: File): Promise<string> => {
-    if (file.type === "application/pdf") {
-      return extractTextFromPDF(file);
+    try {
+      if (file.type === "application/pdf") {
+        return await extractTextFromPDF(file);
+      } else if (
+        file.type === 
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ) {
+        // Handle DOCX files using mammoth
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        return result.value;
+      } else {
+        // Fallback for text files
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsText(file);
+        });
+      }
+    } catch (error) {
+      console.error("Error reading file content:", error);
+      throw new Error("Failed to read file content");
     }
-
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsText(file);
-    });
   };
 
   const extractQuestionsFromContent = async (content: string) => {
