@@ -39,7 +39,7 @@ export const generateChatTitle = async (fileName: string, content: string) => {
           `• [${item.title}](${item.link}): ${item.snippet}`
         ).join("\n");
       }
-  
+      console.log(searchContext);
       // Build enhanced prompt
       const prompt = `**Context**: 
   ${context}
@@ -52,7 +52,8 @@ export const generateChatTitle = async (fileName: string, content: string) => {
   **Instructions**:
   1. Ground your response in both the context and web search results
   2. Keep answers concise but comprehensive
-  3. Do not mention any backend activities like searching websites, etc. No need to cite. Just use the context.`
+  3. Do not mention any backend activities like searching websites, etc. No need to cite. Just use the context.
+  4. Act like a human, talk like a human. Do not say things like "Context mentions this","Web Results Mention that".`
   
   
       // Generate response with Gemini
@@ -198,3 +199,58 @@ export const generateChatTitle = async (fileName: string, content: string) => {
       return "Failed to generate answer with web search";
     }
   };
+
+  // Add these new functions to gemini.ts
+export const generateChatResponseWithoutSearch = async (context: string, question: string) => {
+  console.log("Without Search");
+  const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const prompt = `**Context**: 
+${context}
+
+**Question**: ${question}
+
+**Instructions**:
+1. Ground your response in the provided context
+2. Keep answers concise but comprehensive
+3. Answer directly without mentioning that you're using the context`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+      }),
+    }
+  );
+
+  const data = await response.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated";
+};
+
+export const generateAnswerWithoutSearch = async (context: string, question: string) => {
+  console.log("Without Search");
+  const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const prompt = `You are a helpful homework solver. Solve the question using ONLY the context below. Do NOT include pleasantries - go straight to the answer. Provide full sentences.
+  
+Context:
+${context}
+
+Question:
+${question}`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+      }),
+    }
+  );
+
+  const data = await response.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "No answer available";
+};

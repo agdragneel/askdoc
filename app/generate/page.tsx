@@ -21,6 +21,8 @@ import {
   generateChatResponse,
   extractQuestionsFromText,
   generateAnswerWithWebSearch,
+  generateAnswerWithoutSearch,
+  generateChatResponseWithoutSearch,
 } from "@/lib/gemini";
 
 export default function Home() {
@@ -39,6 +41,7 @@ export default function Home() {
   const [isProcessingAssignment, setIsProcessingAssignment] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(true);
   const [docxUrl, setDocxUrl] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
@@ -56,6 +59,10 @@ export default function Home() {
     };
     checkUser();
   }, [router]);
+
+  const toggleWebSearch = () => {
+    setWebSearchEnabled(!webSearchEnabled);
+  };
 
   const fetchChats = async (userId: string) => {
     const { data, error } = await supabase
@@ -232,7 +239,9 @@ export default function Home() {
       const context = buildChatContext();
 
       // Get AI response using service function
-      const botResponse = await generateChatResponse(context, question);
+      const botResponse = webSearchEnabled
+        ? await generateChatResponse(context, question)
+        : await generateChatResponseWithoutSearch(context, question);
 
       // Save AI response
       await saveMessage(chatId, "assistant", botResponse);
@@ -490,7 +499,9 @@ export default function Home() {
   const generateAnswerForQuestion = async (question: string) => {
     try {
       const context = buildChatContext();
-      return generateAnswerWithWebSearch(context, question);
+      return webSearchEnabled
+        ? generateAnswerWithWebSearch(context, question)
+        : generateAnswerWithoutSearch(context, question);
     } catch (error) {
       console.error("Error generating answer:", error);
       return "Failed to generate answer";
@@ -551,6 +562,8 @@ export default function Home() {
               onSend={askGemini}
               onAssignmentUpload={(e) => handleAssignmentUpload(e.target.files)}
               inputRef={inputRef}
+              webSearchEnabled={webSearchEnabled}
+              onToggleWebSearch={toggleWebSearch}
             />
           </div>
         ) : isCreatingNewChat ? (

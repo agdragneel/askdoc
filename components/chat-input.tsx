@@ -1,5 +1,5 @@
 "use client";
-import { Loader2, ClipboardList } from "lucide-react";
+import { Loader2, ClipboardList, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef, forwardRef } from "react";
 import type { ChangeEventHandler } from "react";
@@ -14,6 +14,8 @@ type ChatInputProps = {
   onSend: () => void;
   onAssignmentUpload: ChangeEventHandler<HTMLInputElement>;
   inputRef: React.RefObject<HTMLDivElement>;
+  webSearchEnabled: boolean;
+  onToggleWebSearch: () => void;
 };
 
 export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
@@ -27,6 +29,8 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
       onSend,
       onAssignmentUpload,
       inputRef,
+      webSearchEnabled,
+      onToggleWebSearch,
     },
     ref
   ) => {
@@ -88,6 +92,30 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 />
               </Button>
             </motion.div>
+
+            <motion.div 
+  whileHover={{ scale: 1.05 }}
+  whileTap={{ scale: 0.95 }}
+>
+  <Button
+    variant="outline"
+    size="icon"
+    onClick={onToggleWebSearch}
+    disabled={isLoading || isProcessingAssignment}
+    className={`h-[44px] ${
+      webSearchEnabled 
+        ? "bg-blue-600 text-white" 
+        : "border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+    }`}
+  >
+    <motion.div
+      animate={{ rotate: webSearchEnabled ? 0 : 360 }}
+      transition={{ duration: 0.5, ease: "easeInOut" }}
+    >
+      <Globe className="h-5 w-5" />
+    </motion.div>
+  </Button>
+</motion.div>
 
             <div
               ref={inputRef}
