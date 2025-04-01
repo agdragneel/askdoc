@@ -155,14 +155,13 @@ export function FileUpload({
     });
   };
 
-
   // -------------------------------HTML Part--------------------------------------------------------------------//
   return (
-    <Card className="p-6">
+    <Card className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
       <div
         className={`border-2 border-dashed rounded-lg p-6 text-center ${
-          processing ? "opacity-50" : "hover:border-primary cursor-pointer"
-        }`}
+          processing ? "opacity-50" : "hover:border-blue-500 cursor-pointer"
+        } transition-all duration-200 ease-in-out`}
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
       >
@@ -179,9 +178,9 @@ export function FileUpload({
           htmlFor="file-upload"
           className="cursor-pointer flex flex-col items-center"
         >
-          <FileUp className="h-12 w-12 text-gray-400" />
+          <FileUp className="h-12 w-12 text-gray-400 mb-2" />
           <p className="mt-2 text-sm text-gray-600">
-            Drag and drop files here, or click to select files
+            Drag and drop files here, or click to select files to build your knowledge base!
           </p>
           <p className="text-xs text-gray-500 mt-1">
             Maximum file size: {formatFileSize(maxFileSize)}
@@ -190,14 +189,14 @@ export function FileUpload({
       </div>
 
       {files.length > 0 && (
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 space-y-4">
           {files.map((file, index) => (
             <div
               key={index}
-              className="flex items-center justify-between p-2 bg-gray-50 rounded"
+              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-300 dark:bg-gray-700 dark:border-gray-600"
             >
               <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium">{file.name}</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{file.name}</span>
                 <span className="text-xs text-gray-500">
                   ({formatFileSize(file.size)})
                 </span>
@@ -208,14 +207,14 @@ export function FileUpload({
                 onClick={() => removeFile(file)}
                 disabled={processing}
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4 text-red-500" />
               </Button>
             </div>
           ))}
 
           {processing && (
             <div className="mt-4">
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress} className="h-2 bg-blue-500" />
               <p className="text-sm text-center mt-2">Processing files...</p>
             </div>
           )}
@@ -224,7 +223,7 @@ export function FileUpload({
             <Button
               onClick={processFiles}
               disabled={processing}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto bg-blue-500 text-white hover:bg-blue-600"
             >
               {processing ? (
                 <>
