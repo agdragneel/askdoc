@@ -547,7 +547,7 @@ export default function Home() {
               isProcessingAssignment={isProcessingAssignment}
               currentQuestionIndex={currentQuestionIndex}
               question={question}
-              onQuestionChange={(text) => {} /* Replace with your handler */}
+              onQuestionChange={setQuestion} // This will update the question state directly
               onSend={askGemini}
               onAssignmentUpload={(e) => handleAssignmentUpload(e.target.files)}
               inputRef={inputRef}
@@ -581,7 +581,7 @@ export default function Home() {
                 !
               </h2>
               <p className="text-lg text-blue-600 dark:text-blue-300">
-               <i>How can I help you today?</i> 
+                <i>How can I help you today?</i>
               </p>
             </div>
 

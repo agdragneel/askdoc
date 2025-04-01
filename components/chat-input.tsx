@@ -30,10 +30,20 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
     },
     ref
   ) => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         onSend();
+      }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      onAssignmentUpload(e);
+      // Reset the file input after handling the upload
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
       }
     };
 
@@ -60,9 +70,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() =>
-                  document.getElementById("assignment-upload")?.click()
-                }
+                onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading || isProcessingAssignment}
                 className="h-[44px] border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
               >
@@ -73,10 +81,10 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 )}
                 <input
                   type="file"
-                  id="assignment-upload"
+                  ref={fileInputRef}
                   className="hidden"
                   accept=".pdf,.doc,.docx,.txt"
-                  onChange={onAssignmentUpload}
+                  onChange={handleFileChange}
                 />
               </Button>
             </motion.div>
@@ -122,7 +130,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
             </motion.div>
           </div>
         </div>
-      </motion.div> 
+      </motion.div>
     );
   }
 );
