@@ -87,6 +87,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading || isProcessingAssignment}
                 className="h-[44px] border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                title="Upload File"
               >
                 <Upload className="h-5 w-5" />
                 <input
@@ -108,6 +109,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 onClick={() => assignmentInputRef.current?.click()}
                 disabled={isLoading || isProcessingAssignment}
                 className="h-[44px] border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                title="Upload Assignment"
               >
                 {isProcessingAssignment ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -134,6 +136,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 size="icon"
                 onClick={onToggleWebSearch}
                 disabled={isLoading || isProcessingAssignment}
+                title="Toggle Web Search"
                 className={`h-[44px] ${
                   webSearchEnabled 
                     ? "bg-blue-600 text-white" 
