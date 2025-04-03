@@ -53,7 +53,8 @@ export const generateChatTitle = async (fileName: string, content: string) => {
   1. Ground your response in both the context and web search results
   2. Keep answers concise but comprehensive
   3. Do not mention any backend activities like searching websites, etc. No need to cite. Just use the context.
-  4. Act like a human, talk like a human. Do not say things like "Context mentions this","Web Results Mention that".`
+  4. Act like a human, talk like a human. Do not say things like "Context mentions this","Web Results Mention that".
+  5. Do not use any formatting like markdown. Seperate lines properly by using new lines.`
   
   
       // Generate response with Gemini
@@ -84,7 +85,7 @@ export const generateChatTitle = async (fileName: string, content: string) => {
   
   export const extractQuestionsFromText = async (content: string) => {
     const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    const prompt = `Extract and list all individual questions from this text exactly as they appear. Return only the questions numbered in markdown format:\n\n${content.slice(
+    const prompt = `Extract and list all individual questions/tasks from this text exactly as they appear. Remember questions may not be direct. They might be long or descriptive as well, stating a task. Return only the questions numbered in markdown format:\n\n${content.slice(
       0,
       3000
     )}`;
@@ -101,7 +102,9 @@ export const generateChatTitle = async (fileName: string, content: string) => {
     );
   
     const data = await response.json();
+    console.log("Extracted Questions:"+data);
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    console.log("Extracted Questions:"+text);
     return text
       .split("\n")
       .filter((line: string) => /^\d+\./.test(line))
@@ -184,7 +187,7 @@ export const generateChatTitle = async (fileName: string, content: string) => {
       const fullContext = `${context}\n\nAdditional Context from Google Search (query used: "${searchQuery}"):\n${searchResultsContext}`;
   
       // Construct final prompt
-      const prompt = `You are a helpful homework solver. Solve the question using the context below. Do NOT include pleasantries - go straight to the answer. Provide full sentences.
+      const prompt = `You are a helpful homework solver. Solve the question using the context below. Do NOT include pleasantries - go straight to the answer. Provide full sentences. Do not use any formatting like markdown. Seperate lines properly by using new lines.
       
   Context:
   ${fullContext}
@@ -212,7 +215,8 @@ ${context}
 **Instructions**:
 1. Ground your response in the provided context
 2. Keep answers concise but comprehensive
-3. Answer directly without mentioning that you're using the context`;
+3. Answer directly without mentioning that you're using the context
+Do not use any formatting like markdown. Seperate lines properly by using new lines.`;
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
@@ -232,7 +236,7 @@ ${context}
 export const generateAnswerWithoutSearch = async (context: string, question: string) => {
   console.log("Without Search");
   const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-  const prompt = `You are a helpful homework solver. Solve the question using ONLY the context below. Do NOT include pleasantries - go straight to the answer. Provide full sentences.
+  const prompt = `You are a helpful homework solver. Solve the question using ONLY the context below. Do NOT include pleasantries - go straight to the answer. Provide full sentences. Do not use any formatting like markdown. Seperate lines properly by using new lines..
   
 Context:
 ${context}

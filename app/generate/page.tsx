@@ -316,12 +316,12 @@ export default function Home() {
 
   const handleAssignmentUpload = async (files: FileList | null) => {
     if (!files || !user || !selectedChat) return;
-
+  
     setIsProcessingAssignment(true);
     try {
       const file = files[0];
       const fileContent = await readFileContent(file);
-
+  
       // Update chat with new file content
       const updatedFiles = selectedChat.files
         ? selectedChat.files + "\n" + fileContent
@@ -332,7 +332,7 @@ export default function Home() {
         .eq("id", selectedChat.id)
         .select()
         .single();
-
+  
       if (updateError) throw new Error(updateError.message);
       if (updatedChat) {
         setSelectedChat(updatedChat);
@@ -340,7 +340,7 @@ export default function Home() {
           prev.map((chat) => (chat.id === updatedChat.id ? updatedChat : chat))
         );
       }
-
+  
       // Add a message indicating the assignment upload
       const assignmentMessage = `*Assignment sent*`;
       await saveMessage(
@@ -357,72 +357,85 @@ export default function Home() {
           created_at: new Date().toISOString(),
         },
       ]);
-
+  
       // Extract questions and generate answers
       const questions = await extractQuestionsFromContent(fileContent);
-      let combinedAnswers = "";
+      let formattedAnswers = "";
+  
       for (let i = 0; i < questions.length; i++) {
         setCurrentQuestionIndex(i);
         const answer = await generateAnswerForQuestion(questions[i]);
-        combinedAnswers += `${i + 1}. ${answer}\n\n`;
+        formattedAnswers += `Question ${i + 1}: ${questions[i]}\n\n`;
+        formattedAnswers += `Answer ${i + 1}: ${answer}\n\n`;
+        formattedAnswers += "-------------------------\n\n";
       }
-
-      // Generate PDF and DOCX files
-      const pdfBlob = generatePDF(combinedAnswers);
-      const docxBlob = await generateDOCX(combinedAnswers);
-
-      // Convert Blobs to base64
-      const pdfBase64 = await blobToBase64(pdfBlob);
-      const docxBase64 = await blobToBase64(docxBlob);
-
-      // Build your attachments array
+  
+      // Generate files
+      const pdfBlob = generatePDF(formattedAnswers);
+      const docxBlob = await generateDOCX(formattedAnswers);
+  
+      // Upload to Supabase Storage
+      const storage = supabase.storage.from('assignments');
+      const timestamp = Date.now();
+      const chatId = encodeURIComponent(selectedChat.id);
+  
+      // Create unique file paths
+      const pdfPath = `answers/${chatId}/${timestamp}_answers.pdf`;
+      const docxPath = `answers/${chatId}/${timestamp}_answers.docx`;
+  
+      // Upload files with proper content types
+      const { error: pdfError } = await storage.upload(pdfPath, pdfBlob, {
+        contentType: 'application/pdf',
+        cacheControl: '3600'
+      });
+      
+      const { error: docxError } = await storage.upload(docxPath, docxBlob, {
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        cacheControl: '3600'
+      });
+  
+      if (pdfError) throw new Error(`PDF upload failed: ${pdfError.message}`);
+      if (docxError) throw new Error(`DOCX upload failed: ${docxError.message}`);
+  
+      // Get public URLs
+      const { data: { publicUrl: pdfUrl } } = storage.getPublicUrl(pdfPath);
+      const { data: { publicUrl: docxUrl } } = storage.getPublicUrl(docxPath);
+  
+      if (!pdfUrl || !docxUrl) throw new Error("Failed to generate download URLs");
+  
+      // Build attachments array
       const attachments = [
         {
           type: "pdf",
-          data: pdfBase64,
+          data: pdfUrl,
           name: "assignment-answers.pdf",
         },
         {
           type: "docx",
-          data: docxBase64,
+          data: docxUrl,
           name: "assignment-answers.docx",
         },
       ];
-
-      // Convert blobs to object URLs
-      const pdfFileUrl = URL.createObjectURL(pdfBlob);
-      const docxFileUrl = URL.createObjectURL(docxBlob);
-      setPdfUrl(pdfFileUrl);
-      setDocxUrl(docxFileUrl);
-
-      // Send AI message with answers and buttons
+  
+      // Save message with attachments
       const assistantMessage: Message = {
         id: generateId(),
         role: "assistant",
-        content: combinedAnswers,
+        content: formattedAnswers,
         created_at: new Date().toISOString(),
-        attachments: [
-          {
-            type: "pdf",
-            data: pdfFileUrl, // Actually, this should be the base64 string from your conversion, not the URL.
-            name: "assignment-answers.pdf",
-          },
-          {
-            type: "docx",
-            data: docxFileUrl, // This should be the base64 string as well.
-            name: "assignment-answers.docx",
-          },
-        ],
+        attachments,
       };
-
+  
       await saveMessage(
         updatedChat?.id || selectedChat.id,
         "assistant",
-        combinedAnswers,
+        formattedAnswers,
         attachments
       );
       setMessages((prev) => [...prev, assistantMessage]);
+  
     } catch (error) {
+      console.error('File handling error:', error);
       toast({
         title: "Assignment processing failed",
         description: error instanceof Error ? error.message : "Unknown error",
@@ -436,36 +449,86 @@ export default function Home() {
 
   // Function to generate PDF with Times New Roman (Font Size 20)
   const generatePDF = (text: string): Blob => {
+    // Remove markdown formatting
+    const cleanText = text
+      .replace(/\*\*Question \d+:\*\*/g, "Question $1:")
+      .replace(/\*\*Answer \d+:\*\*/g, "Answer $1:")
+      .replace(/---/g, "");
+
     const doc = new jsPDF();
-    doc.setFont("times", "normal");
-    doc.setFontSize(12); // Set font size to 12
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 20;
-    const maxLineWidth = pageWidth - margin * 2;
-    // Splitting text to preserve two newlines between answers
-    const lines = doc.splitTextToSize(text, maxLineWidth);
-    doc.text(lines, margin, 30);
+    const lineHeight = 7;
+    let yPos = margin;
+
+    doc.setFont("times", "normal");
+    doc.setFontSize(12);
+
+    // Split text into lines and handle pagination
+    const lines = doc.splitTextToSize(cleanText, pageWidth - margin * 2);
+
+    lines.forEach((line: string, index: number) => {
+      if (yPos + lineHeight > pageHeight - margin) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      doc.text(line, margin, yPos);
+      yPos += lineHeight;
+
+      // Add extra space after questions
+      if (line.startsWith("Question")) {
+        yPos += lineHeight;
+      }
+    });
+
     return doc.output("blob");
   };
 
   // Function to generate DOCX
   const generateDOCX = async (text: string): Promise<Blob> => {
-    // Split text on double newlines into paragraphs
-    const paragraphs = text.split("\n\n").map(
-      (para) =>
+    // Clean markdown from text
+    const cleanText = text
+      .replace(/\*\*Question \d+:\*\*/g, "Question $1:")
+      .replace(/\*\*Answer \d+:\*\*/g, "Answer $1:")
+      .replace(/---/g, "");
+
+    // Split text into Q/A pairs
+    const qaPairs = cleanText.split(/(Question \d+:)/g).filter(Boolean);
+
+    const paragraphs = [];
+    for (let i = 0; i < qaPairs.length; i += 2) {
+      const question = qaPairs[i];
+      const answer = qaPairs[i + 1] || "";
+
+      paragraphs.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: para,
+              text: question.trim(),
+              bold: true,
               font: "Times New Roman",
-              size: 24, // 12pt = 24 half-points
+              size: 24,
             }),
           ],
-          spacing: {
-            after: 200, // adjust spacing as needed
-          },
+          spacing: { after: 100 },
         })
-    );
+      );
+
+      paragraphs.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: answer.trim(),
+              font: "Times New Roman",
+              size: 24,
+            }),
+          ],
+          spacing: { after: 200 },
+        })
+      );
+    }
 
     const doc = new Document({
       sections: [
@@ -485,7 +548,7 @@ export default function Home() {
       if (file.type === "application/pdf") {
         return await extractTextFromPDF(file);
       } else if (
-        file.type === 
+        file.type ===
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       ) {
         // Handle DOCX files using mammoth

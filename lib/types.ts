@@ -29,3 +29,9 @@ export type Chat = {
   files: string;
   user_id: string;
 };
+
+export type Attachment = {
+  type: string;
+  data: string; // URL string
+  name: string;
+}
