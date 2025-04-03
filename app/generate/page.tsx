@@ -14,6 +14,7 @@ import { Sidebar } from "@/components/sidebar";
 import { MessageBubble } from "@/components/message-bubble";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { ChatInput } from "@/components/chat-input";
+import Head from 'next/head';
 
 import {
   generateChatResponse,
@@ -722,6 +723,9 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800">
+      <Head>
+        <title>StudyBuddy</title>
+      </Head>
       <Sidebar
         chats={chats}
         selectedChat={selectedChat}

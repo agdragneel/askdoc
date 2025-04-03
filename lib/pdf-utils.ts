@@ -5,7 +5,7 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
       const reader = new FileReader();
       reader.readAsArrayBuffer(file);
       reader.onload = async function () {
-        try {
+        try { 
           // @ts-ignore - PDF.js types
           const pdf = await window.pdfjsLib.getDocument({ data: reader.result }).promise;
           let text = "";
