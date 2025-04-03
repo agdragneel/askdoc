@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
-import { FiLogIn } from 'react-icons/fi'; // Google OAuth icon
+import { FiLogIn } from 'react-icons/fi';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,51 +40,79 @@ export default function Login() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
-      <motion.div
-        className="text-center mb-6"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1 }}
-      >
-        <h1 className="text-5xl font-extrabold">Welcome Back!</h1>
-        <p className="mt-4 text-lg">Sign in to get help with your assignments!</p>
-      </motion.div>
-
-      {isLoggedIn ? (
+    <div className="flex min-h-screen bg-black text-gray-900">
+      {/* Left Section (40%) */}
+      <div className="w-full md:w-2/5 bg-white flex flex-col items-center justify-center p-8">
         <motion.div
-          className="text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
+          className="w-full max-w-md"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8 }}
         >
-          <p className="text-xl font-semibold">You're already logged in!</p>
-          <motion.button
-            className="mt-4 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full shadow-lg"
-            whileHover={{ scale: 1.05 }}
-            onClick={() => router.push('/')}
-          >
-            Go to Home
-          </motion.button>
-        </motion.div>
-      ) : (
-        <motion.div
-          className="text-center flex flex-col items-center justify-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <button
-            onClick={signInWithGoogle}
-            className="bg-white text-blue-500 px-6 py-3 rounded-full shadow-lg flex items-center gap-4 justify-center hover:bg-gray-100"
-          >
-            <FiLogIn size={24} /> <span>Sign in with Google</span>
-          </button>
-          <p className="mt-4 text-sm">
-            By signing in, you agree to our <a href="#" className="text-blue-300">Terms of Service</a> and <a href="#" className="text-blue-300">Privacy Policy</a>.
+          <h1 className="text-4xl md:text-5xl font-bold mb-6 text-black">
+            Unlock Your <span className="text-blue-600">Potential</span>
+          </h1>
+          <p className="text-lg mb-8 text-gray-700">
+            Get instant help with your assignments and boost your productivity with our AI-powered tools.
           </p>
+
+          {isLoggedIn ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              <p className="text-xl font-semibold mb-4">Welcome back!</p>
+              <motion.button
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow-lg"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => router.push('/')}
+              >
+                Continue to Dashboard
+              </motion.button>
+            </motion.div>
+          ) : (
+            <>
+              <motion.button
+                onClick={signInWithGoogle}
+                className="w-full bg-black text-white px-6 py-3 rounded-lg shadow-lg flex items-center justify-center gap-3 hover:bg-gray-800 transition-colors"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <FiLogIn size={20} />
+                <span>Sign in with Google</span>
+              </motion.button>
+              <p className="mt-4 text-sm text-gray-500">
+                By continuing, you agree to our <a href="#" className="text-blue-600 hover:underline">Terms</a> and <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>.
+              </p>
+            </>
+          )}
         </motion.div>
-      )}
+      </div>
+
+      {/* Right Section (60%) with overlay */}
+      <div className="hidden md:block w-3/5 relative">
+        <div className="absolute inset-0 bg-black bg-opacity-40 z-10"></div>
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ 
+            backgroundImage: "url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80')" 
+          }}
+        ></div>
+        <div className="relative z-20 h-full flex flex-col justify-end p-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
+          >
+            <h2 className="text-4xl font-bold text-white mb-4">Study Smarter, Not Harder</h2>
+            <p className="text-xl text-gray-200">
+              Join thousands of students who are accelerating their learning with our platform.
+            </p>
+          </motion.div>
+        </div>
+      </div>
     </div>
   );
 }
