@@ -85,7 +85,7 @@ export const generateChatTitle = async (fileName: string, content: string) => {
   
   export const extractQuestionsFromText = async (content: string) => {
     const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    const prompt = `Extract and list all individual questions/tasks from this text exactly as they appear. Remember questions may not be direct. They might be long or descriptive as well, stating a task. Return only the questions numbered in markdown format:\n\n${content.slice(
+    const prompt = `Extract and list all individual questions/tasks from this text exactly as they appear. Remember questions may not be direct. They might be long or descriptive as well, stating a task. A single question can have multiple tasks, so read the full question and return it together. Return only the questions numbered in markdown format:\n\n${content.slice(
       0,
       3000
     )}`;

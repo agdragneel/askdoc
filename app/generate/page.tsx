@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { UploadedFile, Message, Chat } from "@/lib/types";
 import { User } from "@supabase/supabase-js";
-import { Loader2, Plus, Trash2, ClipboardList } from "lucide-react";
-import { extractTextFromPDF } from "@/lib/pdf-utils";
+import { Loader2, Plus, Trash2, ClipboardList, Upload } from "lucide-react";
+import { extractTextFromPDF, extractTextFromTextOrDoc } from "@/lib/pdf-utils";
 import { jsPDF } from "jspdf";
 import { blobToBase64 } from "@/lib/utils";
 import { motion } from "framer-motion";
 import mammoth from "mammoth";
+import { marked } from "marked";
 import { Sidebar } from "@/components/sidebar";
 import { MessageBubble } from "@/components/message-bubble";
 import { Document, Packer, Paragraph, TextRun } from "docx";
@@ -44,6 +45,8 @@ export default function Home() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [webSearchEnabled, setWebSearchEnabled] = useState(true);
   const [docxUrl, setDocxUrl] = useState<string | null>(null);
+  const [isProcessingUpload, setIsProcessingUpload] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
   const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
@@ -79,6 +82,27 @@ export default function Home() {
     setMessages([]);
     setFiles([]);
     setIsCreatingNewChat(true);
+
+    // Create empty chat immediately
+    if (user) {
+      supabase
+        .from("chats")
+        .insert([
+          {
+            title: "New Chat",
+            user_id: user.id,
+            files: "",
+          },
+        ])
+        .select()
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            setChats((prev) => [data, ...prev]);
+            setSelectedChat(data);
+          }
+        });
+    }
   };
 
   const handleLogout = async () => {
@@ -125,40 +149,117 @@ export default function Home() {
     const { error } = await supabase.from("chats").delete().eq("id", chatId);
     if (!error) {
       setChats((prev) => prev.filter((c) => c.id !== chatId));
-      if (selectedChat?.id === chatId) createNewChat();
+      if (selectedChat?.id === chatId) {
+        setSelectedChat(null);  // Remove selected chat instead of creating new
+        setMessages([]);        // Clear messages
+        setFiles([]);           // Clear files
+      }
     }
   };
 
   const handleFilesProcessed = async (processedFiles: UploadedFile[]) => {
-    setIsProcessingFile(true); // Start processing
+    setIsProcessingFile(true);
     try {
-      setFiles(processedFiles);
-      if (processedFiles.length > 0 && user) {
+      if (selectedChat && user) {
+        // Update existing chat with new files
+        const newContent = processedFiles.map((f) => f.content).join("\n\n");
+        const updatedFiles = selectedChat.files
+          ? `${selectedChat.files}\n\n${newContent}`
+          : newContent;
+  
+        const { data: updatedChat, error } = await supabase
+          .from("chats")
+          .update({ files: updatedFiles })
+          .eq("id", selectedChat.id)
+          .select()
+          .single();
+  
+        if (error) throw error;
+        if (updatedChat) {
+          // Update title if still "New Chat"
+          if (updatedChat.title === "New Chat" && processedFiles.length > 0) {
+            const newTitle = await generateTitle(
+              processedFiles[0].name,
+              processedFiles[0].content.slice(0, 500)
+            );
+            
+            const { data: titledChat } = await supabase
+              .from("chats")
+              .update({ title: newTitle })
+              .eq("id", updatedChat.id)
+              .select()
+              .single();
+  
+            if (titledChat) {
+              setSelectedChat(titledChat);
+              setChats(prev => prev.map(c => c.id === titledChat.id ? titledChat : c));
+              setFiles((prev) => [...prev, ...processedFiles]);
+            } else {
+              setSelectedChat(updatedChat);
+              setFiles((prev) => [...prev, ...processedFiles]);
+            }
+          } else {
+            setSelectedChat(updatedChat);
+            setFiles((prev) => [...prev, ...processedFiles]);
+          }
+        }
+      } else if (user) {
+        // Create new chat with uploaded files
+        setFiles(processedFiles);
         const title = await generateTitle(
-          processedFiles[0].name,
-          processedFiles[0].content
+          processedFiles[0]?.name || "New Chat",
+          processedFiles[0]?.content || ""
         );
-
+  
         const { data } = await supabase
           .from("chats")
           .insert([
             {
               title,
               user_id: user.id,
-              files: processedFiles[0].content,
+              files: processedFiles.map((f) => f.content).join("\n\n"),
             },
           ])
           .select()
           .single();
-
+  
         if (data) {
-          setChats((prev) => [data, ...prev]);
-          setSelectedChat(data);
+          // Update title if generated title is still "New Chat"
+          if (data.title === "New Chat" && processedFiles.length > 0) {
+            const newTitle = await generateTitle(
+              processedFiles[0].name,
+              processedFiles[0].content.slice(0, 500)
+            );
+            
+            const { data: titledChat } = await supabase
+              .from("chats")
+              .update({ title: newTitle })
+              .eq("id", data.id)
+              .select()
+              .single();
+  
+            if (titledChat) {
+              setChats((prev) => [titledChat, ...prev]);
+              setSelectedChat(titledChat);
+            } else {
+              setChats((prev) => [data, ...prev]);
+              setSelectedChat(data);
+            }
+          } else {
+            setChats((prev) => [data, ...prev]);
+            setSelectedChat(data);
+          }
           setIsCreatingNewChat(false);
         }
       }
+    } catch (error) {
+      toast({
+        title: "File processing error",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
     } finally {
-      setIsProcessingFile(false); // End processing
+      setIsProcessingFile(false);
     }
   };
 
@@ -199,23 +300,25 @@ export default function Home() {
     setIsLoading(true);
     try {
       let chatId = selectedChat?.id;
+      let newChat = null;
 
-      // Create new chat if needed
+      // Create new chat if needed (even without files)
       if (!chatId) {
-        const fileContents = files.map((f) => f.content).join("\n\n");
+        const title = await generateTitle("Chat", question.slice(0, 100));
         const { data } = await supabase
           .from("chats")
           .insert([
             {
-              title: "New Chat",
+              title,
               user_id: user.id,
-              files: fileContents,
+              files: files.map((f) => f.content).join("\n\n"), // Handle empty files
             },
           ])
           .select()
           .single();
 
         if (data) {
+          newChat = data;
           chatId = data.id;
           setChats((prev) => [data, ...prev]);
           setSelectedChat(data);
@@ -236,10 +339,10 @@ export default function Home() {
         },
       ]);
 
-      // Build context
+      // Build context from both files and chat history
       const context = buildChatContext();
 
-      // Get AI response using service function
+      // Get AI response
       const botResponse = webSearchEnabled
         ? await generateChatResponse(context, question)
         : await generateChatResponseWithoutSearch(context, question);
@@ -256,6 +359,33 @@ export default function Home() {
         },
       ]);
 
+      // Update chat title if it's new
+      if ((selectedChat?.title === "New Chat" || newChat) && question) {
+        const titleContent =
+          files.length > 0
+            ? files[0].content.slice(0, 500)
+            : question.slice(0, 500);
+
+        const newTitle = await generateTitle(
+          files.length > 0 ? files[0].name : "Chat",
+          titleContent
+        );
+
+        const { data: updatedChat } = await supabase
+          .from("chats")
+          .update({ title: newTitle })
+          .eq("id", chatId)
+          .select()
+          .single();
+
+        if (updatedChat) {
+          setSelectedChat(updatedChat);
+          setChats((prev) =>
+            prev.map((chat) => (chat.id === chatId ? updatedChat : chat))
+          );
+        }
+      }
+
       setQuestion("");
       if (inputRef.current) inputRef.current.innerText = "";
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -268,7 +398,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [question, files, messages, user, toast, selectedChat]);
+  }, [question, files, messages, user, toast, selectedChat, webSearchEnabled]);
 
   const generateTitle = async (fileName: string, content: string) => {
     const response = await fetch(
@@ -335,8 +465,28 @@ export default function Home() {
   
       if (updateError) throw new Error(updateError.message);
       if (updatedChat) {
-        setSelectedChat(updatedChat);
-        setChats((prev) =>
+        // Update title if still "New Chat"
+        if (selectedChat.title === "New Chat") {
+          const fileName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
+          const newTitle = await generateTitle(fileName, fileContent.slice(0, 500));
+          
+          const { data: titledChat } = await supabase
+            .from("chats")
+            .update({ title: newTitle })
+            .eq("id", selectedChat.id)
+            .select()
+            .single();
+  
+          if (titledChat) {
+            setSelectedChat(titledChat);
+            setChats(prev => prev.map(c => c.id === titledChat.id ? titledChat : c));
+          } else {
+            setSelectedChat(updatedChat);
+          }
+        } else {
+          setSelectedChat(updatedChat);
+        }
+        setChats(prev =>
           prev.map((chat) => (chat.id === updatedChat.id ? updatedChat : chat))
         );
       }
@@ -365,9 +515,9 @@ export default function Home() {
       for (let i = 0; i < questions.length; i++) {
         setCurrentQuestionIndex(i);
         const answer = await generateAnswerForQuestion(questions[i]);
-        formattedAnswers += `Question ${i + 1}: ${questions[i]}\n\n`;
-        formattedAnswers += `Answer ${i + 1}: ${answer}\n\n`;
-        formattedAnswers += "-------------------------\n\n";
+        formattedAnswers += `**Question ${i + 1}:** ${questions[i]}\n\n`;
+        formattedAnswers += `**Answer ${i + 1}:** ${answer}\n\n`;
+        formattedAnswers += "---\n\n"; // Separator between Q&A pairs
       }
   
       // Generate files
@@ -447,99 +597,51 @@ export default function Home() {
     }
   };
 
+
   // Function to generate PDF with Times New Roman (Font Size 20)
   const generatePDF = (text: string): Blob => {
-    // Remove markdown formatting
-    const cleanText = text
-      .replace(/\*\*Question \d+:\*\*/g, "Question $1:")
-      .replace(/\*\*Answer \d+:\*\*/g, "Answer $1:")
-      .replace(/---/g, "");
-
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 20;
     const lineHeight = 7;
-    let yPos = margin;
-
-    doc.setFont("times", "normal");
+    let yPos = 20;
+  
+    doc.setFont("helvetica"); // More universal font
     doc.setFontSize(12);
-
-    // Split text into lines and handle pagination
-    const lines = doc.splitTextToSize(cleanText, pageWidth - margin * 2);
-
-    lines.forEach((line: string, index: number) => {
-      if (yPos + lineHeight > pageHeight - margin) {
+  
+    // Split text into lines that fit page width
+    const splitText = doc.splitTextToSize(text, pageWidth - margin * 2);
+  
+    splitText.forEach((line: string) => {
+      if (yPos > doc.internal.pageSize.getHeight() - 20) {
         doc.addPage();
-        yPos = margin;
+        yPos = 20;
       }
-
+      
       doc.text(line, margin, yPos);
       yPos += lineHeight;
-
-      // Add extra space after questions
-      if (line.startsWith("Question")) {
-        yPos += lineHeight;
-      }
     });
-
+  
     return doc.output("blob");
   };
 
   // Function to generate DOCX
   const generateDOCX = async (text: string): Promise<Blob> => {
-    // Clean markdown from text
-    const cleanText = text
-      .replace(/\*\*Question \d+:\*\*/g, "Question $1:")
-      .replace(/\*\*Answer \d+:\*\*/g, "Answer $1:")
-      .replace(/---/g, "");
-
-    // Split text into Q/A pairs
-    const qaPairs = cleanText.split(/(Question \d+:)/g).filter(Boolean);
-
-    const paragraphs = [];
-    for (let i = 0; i < qaPairs.length; i += 2) {
-      const question = qaPairs[i];
-      const answer = qaPairs[i + 1] || "";
-
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: question.trim(),
-              bold: true,
-              font: "Times New Roman",
-              size: 24,
-            }),
-          ],
-          spacing: { after: 100 },
-        })
-      );
-
-      paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: answer.trim(),
-              font: "Times New Roman",
-              size: 24,
-            }),
-          ],
-          spacing: { after: 200 },
-        })
-      );
-    }
-
+    const paragraphs = text.split('\n\n').map(content => 
+      new Paragraph({
+        children: [new TextRun(content)],
+        spacing: { after: 200 },
+      })
+    );
+  
     const doc = new Document({
-      sections: [
-        {
-          properties: {},
-          children: paragraphs,
-        },
-      ],
+      sections: [{
+        properties: {},
+        children: paragraphs,
+      }],
     });
-
-    return await Packer.toBlob(doc);
+  
+    return Packer.toBlob(doc);
   };
 
   // Helper functions
@@ -574,6 +676,40 @@ export default function Home() {
     return extractQuestionsFromText(content);
   };
 
+  const processFileList = async (files: FileList): Promise<UploadedFile[]> => {
+    const processedFiles: UploadedFile[] = [];
+    setIsProcessingUpload(true);
+    setUploadSuccess(false);
+
+    try {
+      for (const file of Array.from(files)) {
+        let content = "";
+
+        if (file.type === "application/pdf") {
+          content = await extractTextFromPDF(file);
+        } else {
+          content = await extractTextFromTextOrDoc(file);
+        }
+
+        processedFiles.push({
+          id: generateId(),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          content,
+        });
+      }
+
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 2000);
+      return processedFiles;
+    } catch (error) {
+      throw error;
+    } finally {
+      setIsProcessingUpload(false);
+    }
+  };
+
   const generateAnswerForQuestion = async (question: string) => {
     try {
       const context = buildChatContext();
@@ -590,7 +726,6 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800">
-      {/* Sidebar */}
       <Sidebar
         chats={chats}
         selectedChat={selectedChat}
@@ -601,18 +736,20 @@ export default function Home() {
         onLogout={handleLogout}
       />
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col h-screen">
         {selectedChat ? (
           <div className="flex flex-col h-full">
-            {/* Chat Header */}
-            <div className="p-4 border-b bg-white dark:bg-gray-800">
-              <h2 className="text-xl font-semibold text-blue-900 dark:text-blue-200">
-                {selectedChat.title}
-              </h2>
-              <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
-                Created {new Date(selectedChat.created_at).toLocaleDateString()}
-              </p>
+            {/* Chat Header with File Upload */}
+            <div className="p-4 border-b bg-white dark:bg-gray-800 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-semibold text-blue-900 dark:text-blue-200">
+                  {selectedChat.title}
+                </h2>
+                <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                  Created{" "}
+                  {new Date(selectedChat.created_at).toLocaleDateString()}
+                </p>
+              </div>
             </div>
 
             {/* Chat Messages */}
@@ -629,6 +766,31 @@ export default function Home() {
               </div>
             </div>
 
+            <div className="px-4 space-y-2">
+              {isProcessingUpload && (
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-300">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Processing files...</span>
+                </div>
+              )}
+
+              {uploadSuccess && (
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-300">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                  <span className="text-sm">Files uploaded successfully!</span>
+                </div>
+              )}
+            </div>
+
             {/* Chat Input */}
             <ChatInput
               ref={chatEndRef}
@@ -636,32 +798,34 @@ export default function Home() {
               isProcessingAssignment={isProcessingAssignment}
               currentQuestionIndex={currentQuestionIndex}
               question={question}
-              onQuestionChange={setQuestion} // This will update the question state directly
+              onQuestionChange={setQuestion}
               onSend={askGemini}
               onAssignmentUpload={(e) => handleAssignmentUpload(e.target.files)}
               inputRef={inputRef}
               webSearchEnabled={webSearchEnabled}
               onToggleWebSearch={toggleWebSearch}
+              onFileUpload={async (e) => {
+                if (e.target.files) {
+                  try {
+                    const processed = await processFileList(e.target.files);
+                    handleFilesProcessed(processed);
+                  } catch (error) {
+                    setUploadSuccess(false);
+                    toast({
+                      title: "File upload failed",
+                      description:
+                        error instanceof Error
+                          ? error.message
+                          : "Unknown error",
+                      variant: "destructive",
+                    });
+                  }
+                }
+              }}
             />
           </div>
-        ) : isCreatingNewChat ? (
-          <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800">
-            {isProcessingFile ? (
-              <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin" />
-                <p className="text-blue-900 dark:text-blue-200">
-                  Processing your files...
-                </p>
-              </div>
-            ) : (
-              <FileUpload
-                onFilesProcessed={handleFilesProcessed}
-                maxFileSize={20 * 1024 * 1024}
-                acceptedFileTypes={[".pdf", ".txt", ".doc", ".docx"]}
-              />
-            )}
-          </div>
-        ) : (
+        ) :  (
+          // New Empty State
           <div className="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800">
             <div className="space-y-2 mb-8">
               <h2 className="text-2xl font-semibold text-blue-900 dark:text-blue-200">
@@ -676,12 +840,16 @@ export default function Home() {
               </p>
             </div>
 
-            <Button
-              onClick={createNewChat}
-              className="px-8 py-4 text-lg bg-blue-600 hover:bg-blue-700 text-white rounded-full"
-            >
-              <Plus className="mr-2 h-5 w-5" /> Start New Chat
-            </Button>
+            <div className="flex flex-col gap-4">
+              <Button
+                onClick={createNewChat}
+                className="px-8 py-4 text-lg bg-blue-600 hover:bg-blue-700 text-white rounded-full"
+              >
+                <Plus className="mr-2 h-5 w-5" /> Start Empty Chat
+              </Button>
+
+  
+            </div>
           </div>
         )}
       </div>

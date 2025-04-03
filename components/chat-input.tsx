@@ -1,5 +1,5 @@
 "use client";
-import { Loader2, ClipboardList, Globe } from "lucide-react";
+import { Loader2, ClipboardList, Globe, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef, forwardRef } from "react";
 import type { ChangeEventHandler } from "react";
@@ -13,6 +13,7 @@ type ChatInputProps = {
   onQuestionChange: (text: string) => void;
   onSend: () => void;
   onAssignmentUpload: ChangeEventHandler<HTMLInputElement>;
+  onFileUpload: ChangeEventHandler<HTMLInputElement>;
   inputRef: React.RefObject<HTMLDivElement>;
   webSearchEnabled: boolean;
   onToggleWebSearch: () => void;
@@ -28,12 +29,14 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
       onQuestionChange,
       onSend,
       onAssignmentUpload,
+      onFileUpload,
       inputRef,
       webSearchEnabled,
       onToggleWebSearch,
     },
     ref
   ) => {
+    const assignmentInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -43,9 +46,15 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
       }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleAssignmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       onAssignmentUpload(e);
-      // Reset the file input after handling the upload
+      if (assignmentInputRef.current) {
+        assignmentInputRef.current.value = '';
+      }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      onFileUpload(e);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -70,11 +79,33 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
           )}
 
           <div className="flex gap-2">
+            {/* General File Upload Button */}
             <motion.div whileHover={{ scale: 1.05 }}>
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading || isProcessingAssignment}
+                className="h-[44px] border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+              >
+                <Upload className="h-5 w-5" />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.txt"
+                  onChange={handleFileChange}
+                  multiple
+                />
+              </Button>
+            </motion.div>
+
+            {/* Assignment Upload Button */}
+            <motion.div whileHover={{ scale: 1.05 }}>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => assignmentInputRef.current?.click()}
                 disabled={isLoading || isProcessingAssignment}
                 className="h-[44px] border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
               >
@@ -85,38 +116,40 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 )}
                 <input
                   type="file"
-                  ref={fileInputRef}
+                  ref={assignmentInputRef}
                   className="hidden"
                   accept=".pdf,.doc,.docx,.txt"
-                  onChange={handleFileChange}
+                  onChange={handleAssignmentChange}
                 />
               </Button>
             </motion.div>
 
+            {/* Web Search Toggle */}
             <motion.div 
-  whileHover={{ scale: 1.05 }}
-  whileTap={{ scale: 0.95 }}
->
-  <Button
-    variant="outline"
-    size="icon"
-    onClick={onToggleWebSearch}
-    disabled={isLoading || isProcessingAssignment}
-    className={`h-[44px] ${
-      webSearchEnabled 
-        ? "bg-blue-600 text-white" 
-        : "border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
-    }`}
-  >
-    <motion.div
-      animate={{ rotate: webSearchEnabled ? 0 : 360 }}
-      transition={{ duration: 0.5, ease: "easeInOut" }}
-    >
-      <Globe className="h-5 w-5" />
-    </motion.div>
-  </Button>
-</motion.div>
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onToggleWebSearch}
+                disabled={isLoading || isProcessingAssignment}
+                className={`h-[44px] ${
+                  webSearchEnabled 
+                    ? "bg-blue-600 text-white" 
+                    : "border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                }`}
+              >
+                <motion.div
+                  animate={{ rotate: webSearchEnabled ? 0 : 360 }}
+                  transition={{ duration: 0.5, ease: "easeInOut" }}
+                >
+                  <Globe className="h-5 w-5" />
+                </motion.div>
+              </Button>
+            </motion.div>
 
+            {/* Input Field */}
             <div
               ref={inputRef}
               contentEditable
@@ -134,6 +167,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
               suppressContentEditableWarning={true}
             />
 
+            {/* Send Button */}
             <motion.div whileHover={{ scale: 1.05 }}>
               <Button
                 onClick={onSend}
