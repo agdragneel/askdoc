@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { FileUpload } from "@/components/file-upload";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { UploadedFile, Message, Chat } from "@/lib/types";
@@ -10,10 +9,7 @@ import { User } from "@supabase/supabase-js";
 import { Loader2, Plus, Trash2, ClipboardList, Upload } from "lucide-react";
 import { extractTextFromPDF, extractTextFromTextOrDoc } from "@/lib/pdf-utils";
 import { jsPDF } from "jspdf";
-import { blobToBase64 } from "@/lib/utils";
-import { motion } from "framer-motion";
 import mammoth from "mammoth";
-import { marked } from "marked";
 import { Sidebar } from "@/components/sidebar";
 import { MessageBubble } from "@/components/message-bubble";
 import { Document, Packer, Paragraph, TextRun } from "docx";
