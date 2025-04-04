@@ -117,8 +117,8 @@ import Script from "next/script"; // Import Next.js Script
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "File Upload & Gemini LLM",
-  description: "Upload files and ask questions using Gemini LLM",
+  title: "StudyBuddy",
+  description: "AI Assignment Helper",
 };
 
 export default function RootLayout({

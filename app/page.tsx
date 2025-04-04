@@ -5,16 +5,20 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
 import { FiLogIn } from 'react-icons/fi';
-import Head from 'next/head';
+
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+
+
 export default function Login() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  
 
   useEffect(() => {
     const checkAuthStatus = async () => {
@@ -94,9 +98,7 @@ export default function Login() {
 
       {/* Right Section (60%) with overlay */}
       <div className="hidden md:block w-3/5 relative">
-      <Head>
-              <title>StudyBuddy</title>
-            </Head>
+      
         <div className="absolute inset-0 bg-black bg-opacity-40 z-10"></div>
         <div 
           className="absolute inset-0 bg-cover bg-center"

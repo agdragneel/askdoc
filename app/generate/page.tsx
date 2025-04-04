@@ -48,6 +48,8 @@ export default function Home() {
   const inputRef = useRef<HTMLDivElement>(null);
   const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
+ 
+
   useEffect(() => {
     const checkUser = async () => {
       const { data, error } = await supabase.auth.getUser();
