@@ -51,7 +51,7 @@ export default function Login() {
           transition={{ duration: 0.8 }}
         >
           <h1 className="text-4xl md:text-5xl font-bold mb-6 text-black">
-            Unlock Your <span className="text-blue-600">Potential</span>
+            Let AI Agents <span className="text-blue-600">Do The Magic</span>
           </h1>
           <p className="text-lg mb-8 text-gray-700">
             Get instant help with your assignments and boost your productivity with our AI-powered tools.
