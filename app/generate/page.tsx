@@ -14,7 +14,7 @@ import { Sidebar } from "@/components/sidebar";
 import { MessageBubble } from "@/components/message-bubble";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { ChatInput } from "@/components/chat-input";
-import Head from 'next/head';
+import Head from "next/head";
 
 import {
   generateChatResponse,
@@ -22,6 +22,8 @@ import {
   generateAnswerWithWebSearch,
   generateAnswerWithoutSearch,
   generateChatResponseWithoutSearch,
+  extractAssignmentContext,
+  extractAssignmentGuidelines,
 } from "@/lib/gemini";
 
 export default function Home() {
@@ -42,13 +44,12 @@ export default function Home() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [webSearchEnabled, setWebSearchEnabled] = useState(true);
   const [docxUrl, setDocxUrl] = useState<string | null>(null);
+  const [showInstructions, setShowInstructions] = useState(true);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
   const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-
- 
 
   useEffect(() => {
     const checkUser = async () => {
@@ -81,6 +82,7 @@ export default function Home() {
     setMessages([]);
     setFiles([]);
     setIsCreatingNewChat(true);
+    setShowInstructions(true);
 
     // Create empty chat immediately
     if (user) {
@@ -149,9 +151,9 @@ export default function Home() {
     if (!error) {
       setChats((prev) => prev.filter((c) => c.id !== chatId));
       if (selectedChat?.id === chatId) {
-        setSelectedChat(null);  // Remove selected chat instead of creating new
-        setMessages([]);        // Clear messages
-        setFiles([]);           // Clear files
+        setSelectedChat(null); // Remove selected chat instead of creating new
+        setMessages([]); // Clear messages
+        setFiles([]); // Clear files
       }
     }
   };
@@ -165,14 +167,14 @@ export default function Home() {
         const updatedFiles = selectedChat.files
           ? `${selectedChat.files}\n\n${newContent}`
           : newContent;
-  
+
         const { data: updatedChat, error } = await supabase
           .from("chats")
           .update({ files: updatedFiles })
           .eq("id", selectedChat.id)
           .select()
           .single();
-  
+
         if (error) throw error;
         if (updatedChat) {
           // Update title if still "New Chat"
@@ -181,17 +183,19 @@ export default function Home() {
               processedFiles[0].name,
               processedFiles[0].content.slice(0, 500)
             );
-            
+
             const { data: titledChat } = await supabase
               .from("chats")
               .update({ title: newTitle })
               .eq("id", updatedChat.id)
               .select()
               .single();
-  
+
             if (titledChat) {
               setSelectedChat(titledChat);
-              setChats(prev => prev.map(c => c.id === titledChat.id ? titledChat : c));
+              setChats((prev) =>
+                prev.map((c) => (c.id === titledChat.id ? titledChat : c))
+              );
               setFiles((prev) => [...prev, ...processedFiles]);
             } else {
               setSelectedChat(updatedChat);
@@ -209,7 +213,7 @@ export default function Home() {
           processedFiles[0]?.name || "New Chat",
           processedFiles[0]?.content || ""
         );
-  
+
         const { data } = await supabase
           .from("chats")
           .insert([
@@ -221,7 +225,7 @@ export default function Home() {
           ])
           .select()
           .single();
-  
+
         if (data) {
           // Update title if generated title is still "New Chat"
           if (data.title === "New Chat" && processedFiles.length > 0) {
@@ -229,14 +233,14 @@ export default function Home() {
               processedFiles[0].name,
               processedFiles[0].content.slice(0, 500)
             );
-            
+
             const { data: titledChat } = await supabase
               .from("chats")
               .update({ title: newTitle })
               .eq("id", data.id)
               .select()
               .single();
-  
+
             if (titledChat) {
               setChats((prev) => [titledChat, ...prev]);
               setSelectedChat(titledChat);
@@ -445,12 +449,18 @@ export default function Home() {
 
   const handleAssignmentUpload = async (files: FileList | null) => {
     if (!files || !user || !selectedChat) return;
-  
+
     setIsProcessingAssignment(true);
     try {
       const file = files[0];
       const fileContent = await readFileContent(file);
-  
+
+      // Extract guidelines and context first
+    const [guidelines, context] = await Promise.all([
+      extractAssignmentGuidelines(fileContent),
+      extractAssignmentContext(fileContent)
+    ]);
+
       // Update chat with new file content
       const updatedFiles = selectedChat.files
         ? selectedChat.files + "\n" + fileContent
@@ -461,35 +471,40 @@ export default function Home() {
         .eq("id", selectedChat.id)
         .select()
         .single();
-  
+
       if (updateError) throw new Error(updateError.message);
       if (updatedChat) {
         // Update title if still "New Chat"
         if (selectedChat.title === "New Chat") {
           const fileName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
-          const newTitle = await generateTitle(fileName, fileContent.slice(0, 500));
-          
+          const newTitle = await generateTitle(
+            fileName,
+            fileContent.slice(0, 500)
+          );
+
           const { data: titledChat } = await supabase
             .from("chats")
             .update({ title: newTitle })
             .eq("id", selectedChat.id)
             .select()
             .single();
-  
+
           if (titledChat) {
             setSelectedChat(titledChat);
-            setChats(prev => prev.map(c => c.id === titledChat.id ? titledChat : c));
+            setChats((prev) =>
+              prev.map((c) => (c.id === titledChat.id ? titledChat : c))
+            );
           } else {
             setSelectedChat(updatedChat);
           }
         } else {
           setSelectedChat(updatedChat);
         }
-        setChats(prev =>
+        setChats((prev) =>
           prev.map((chat) => (chat.id === updatedChat.id ? updatedChat : chat))
         );
       }
-  
+
       // Add a message indicating the assignment upload
       const assignmentMessage = `*Assignment sent*`;
       await saveMessage(
@@ -506,52 +521,64 @@ export default function Home() {
           created_at: new Date().toISOString(),
         },
       ]);
-  
+
       // Extract questions and generate answers
       const questions = await extractQuestionsFromContent(fileContent);
       let formattedAnswers = "";
-  
+
       for (let i = 0; i < questions.length; i++) {
         setCurrentQuestionIndex(i);
-        const answer = await generateAnswerForQuestion(questions[i]);
+        const answer = await generateAnswerForQuestion(
+          questions[i], 
+          guidelines, 
+          context,
+          fileContent // Pass full assignment content for reference
+        );
         formattedAnswers += `**Question ${i + 1}:** ${questions[i]}\n\n`;
         formattedAnswers += `**Answer ${i + 1}:** ${answer}\n\n`;
-        formattedAnswers += "---\n\n"; // Separator between Q&A pairs
+        formattedAnswers += "---\n\n";
       }
-  
+
       // Generate files
       const pdfBlob = generatePDF(formattedAnswers);
       const docxBlob = await generateDOCX(formattedAnswers);
-  
+
       // Upload to Supabase Storage
-      const storage = supabase.storage.from('assignments');
+      const storage = supabase.storage.from("assignments");
       const timestamp = Date.now();
       const chatId = encodeURIComponent(selectedChat.id);
-  
+
       // Create unique file paths
       const pdfPath = `answers/${chatId}/${timestamp}_answers.pdf`;
       const docxPath = `answers/${chatId}/${timestamp}_answers.docx`;
-  
+
       // Upload files with proper content types
       const { error: pdfError } = await storage.upload(pdfPath, pdfBlob, {
-        contentType: 'application/pdf',
-        cacheControl: '3600'
+        contentType: "application/pdf",
+        cacheControl: "3600",
       });
-      
+
       const { error: docxError } = await storage.upload(docxPath, docxBlob, {
-        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        cacheControl: '3600'
+        contentType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        cacheControl: "3600",
       });
-  
+
       if (pdfError) throw new Error(`PDF upload failed: ${pdfError.message}`);
-      if (docxError) throw new Error(`DOCX upload failed: ${docxError.message}`);
-  
+      if (docxError)
+        throw new Error(`DOCX upload failed: ${docxError.message}`);
+
       // Get public URLs
-      const { data: { publicUrl: pdfUrl } } = storage.getPublicUrl(pdfPath);
-      const { data: { publicUrl: docxUrl } } = storage.getPublicUrl(docxPath);
-  
-      if (!pdfUrl || !docxUrl) throw new Error("Failed to generate download URLs");
-  
+      const {
+        data: { publicUrl: pdfUrl },
+      } = storage.getPublicUrl(pdfPath);
+      const {
+        data: { publicUrl: docxUrl },
+      } = storage.getPublicUrl(docxPath);
+
+      if (!pdfUrl || !docxUrl)
+        throw new Error("Failed to generate download URLs");
+
       // Build attachments array
       const attachments = [
         {
@@ -565,7 +592,7 @@ export default function Home() {
           name: "assignment-answers.docx",
         },
       ];
-  
+
       // Save message with attachments
       const assistantMessage: Message = {
         id: generateId(),
@@ -574,7 +601,7 @@ export default function Home() {
         created_at: new Date().toISOString(),
         attachments,
       };
-  
+
       await saveMessage(
         updatedChat?.id || selectedChat.id,
         "assistant",
@@ -582,9 +609,8 @@ export default function Home() {
         attachments
       );
       setMessages((prev) => [...prev, assistantMessage]);
-  
     } catch (error) {
-      console.error('File handling error:', error);
+      console.error("File handling error:", error);
       toast({
         title: "Assignment processing failed",
         description: error instanceof Error ? error.message : "Unknown error",
@@ -596,7 +622,6 @@ export default function Home() {
     }
   };
 
-
   // Function to generate PDF with Times New Roman (Font Size 20)
   const generatePDF = (text: string): Blob => {
     const doc = new jsPDF();
@@ -604,42 +629,45 @@ export default function Home() {
     const margin = 20;
     const lineHeight = 7;
     let yPos = 20;
-  
+
     doc.setFont("helvetica"); // More universal font
     doc.setFontSize(12);
-  
+
     // Split text into lines that fit page width
     const splitText = doc.splitTextToSize(text, pageWidth - margin * 2);
-  
+
     splitText.forEach((line: string) => {
       if (yPos > doc.internal.pageSize.getHeight() - 20) {
         doc.addPage();
         yPos = 20;
       }
-      
+
       doc.text(line, margin, yPos);
       yPos += lineHeight;
     });
-  
+
     return doc.output("blob");
   };
 
   // Function to generate DOCX
   const generateDOCX = async (text: string): Promise<Blob> => {
-    const paragraphs = text.split('\n\n').map(content => 
-      new Paragraph({
-        children: [new TextRun(content)],
-        spacing: { after: 200 },
-      })
+    const paragraphs = text.split("\n\n").map(
+      (content) =>
+        new Paragraph({
+          children: [new TextRun(content)],
+          spacing: { after: 200 },
+        })
     );
-  
+
     const doc = new Document({
-      sections: [{
-        properties: {},
-        children: paragraphs,
-      }],
+      sections: [
+        {
+          properties: {},
+          children: paragraphs,
+        },
+      ],
     });
-  
+
     return Packer.toBlob(doc);
   };
 
@@ -709,12 +737,40 @@ export default function Home() {
     }
   };
 
-  const generateAnswerForQuestion = async (question: string) => {
+  const generateAnswerForQuestion = async (
+    question: string,
+    guidelines: string,
+    context: string,
+    fullAssignment: string
+  ) => {
     try {
-      const context = buildChatContext();
+      const baseContext = buildChatContext();
+      
+      const prompt = `**Assignment Guidelines**:
+  ${guidelines}
+  
+  **Relevant Context from Assignment**:
+  ${context}
+  
+  **Full Assignment Content** (reference only):
+  ${fullAssignment.slice(0, 2000)}
+  
+  **Additional Chat Context**:
+  ${baseContext}
+  
+  **Question to Answer**:
+  ${question}
+  
+  **Instructions**:
+  1. Prioritize following the assignment guidelines explicitly
+  2. Use context from both the assignment and chat history
+  3. If guidelines conflict with chat context, follow guidelines
+  4. Maintain natural, human-like responses without markdown
+  5. If unsure, ask clarifying questions but attempt solution`;
+  
       return webSearchEnabled
-        ? generateAnswerWithWebSearch(context, question)
-        : generateAnswerWithoutSearch(context, question);
+        ? generateAnswerWithWebSearch(prompt, question)
+        : generateAnswerWithoutSearch(prompt, question);
     } catch (error) {
       console.error("Error generating answer:", error);
       return "Failed to generate answer";
@@ -753,6 +809,40 @@ export default function Home() {
                 </p>
               </div>
             </div>
+
+            {selectedChat && showInstructions && (
+              <div className="fixed top-4 right-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg max-w-xs border border-blue-200 dark:border-blue-700 z-50">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-200">
+                    Getting Started
+                  </h3>
+                  <button
+                    onClick={() => setShowInstructions(false)}
+                    className="text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:hover:text-blue-400"
+                  >
+                    ×
+                  </button>
+                </div>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-blue-600 dark:text-blue-300">
+                  <li>
+                    Upload your study materials or knowledge base files to
+                    provide context
+                  </li>
+                  <li>
+                    Ask any questions related to your materials or general
+                    topics
+                  </li>
+                  <li>
+                    Upload assignments to get complete solutions with
+                    explanations
+                  </li>
+                  <li>
+                    Toggle web search (🌐 icon) to include latest online
+                    information
+                  </li>
+                </ol>
+              </div>
+            )}
 
             {/* Chat Messages */}
             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-300 dark:scrollbar-thumb-blue-600">
@@ -826,7 +916,7 @@ export default function Home() {
               }}
             />
           </div>
-        ) :  (
+        ) : (
           // New Empty State
           <div className="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800">
             <div className="space-y-2 mb-8">
@@ -849,8 +939,6 @@ export default function Home() {
               >
                 <Plus className="mr-2 h-5 w-5" /> Start Empty Chat
               </Button>
-
-  
             </div>
           </div>
         )}

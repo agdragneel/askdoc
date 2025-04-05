@@ -85,7 +85,7 @@ export const generateChatTitle = async (fileName: string, content: string) => {
   
   export const extractQuestionsFromText = async (content: string) => {
     const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    const prompt = `Extract and list all individual questions/tasks from this text exactly as they appear. Remember questions may not be direct. They might be long or descriptive as well, stating a task. A single question can have multiple tasks, so read the full question and return it together. Return only the questions numbered in markdown format:\n\n${content.slice(
+    const prompt = `Extract and list all individual questions/tasks from this text exactly as they appear. Remember questions may not be direct. They might be long or descriptive as well, stating a task. A single question can have multiple tasks, so read the full question and return it together. Return only the questions numbered without any markdown format:\n\n${content.slice(
       0,
       3000
     )}`;
@@ -257,4 +257,64 @@ ${question}`;
 
   const data = await response.json();
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "No answer available";
+};
+
+export const extractAssignmentGuidelines = async (content: string) => {
+  const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const prompt = `Analyze this assignment text and extract any specific guidelines/rubrics/instructions for answering questions. 
+  Focus on requirements like:
+  - Formatting rules
+  - Citation requirements
+  - Length restrictions
+  - Specific methodologies to use
+  - Grading criteria
+  
+  Return only the guidelines in bullet points. If none found, return "No specific guidelines provided".
+  
+  Assignment Content:
+  ${content.slice(0, 3000)}`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+      }),
+    }
+  );
+
+  const data = await response.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "No specific guidelines provided";
+};
+
+export const extractAssignmentContext = async (content: string) => {
+  const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const prompt = `Analyze this assignment text and extract any background context or reference material that might be relevant for answering questions. 
+  Look for:
+  - Provided datasets or examples
+  - Reference formulas/theorems
+  - Case study information
+  - Historical context
+  - Key concepts to focus on
+  
+  Return only the context in bullet points. If none found, return "No additional context provided".
+  
+  Assignment Content:
+  ${content.slice(0, 3000)}`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+      }),
+    }
+  );
+
+  const data = await response.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "No additional context provided";
 };
