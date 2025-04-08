@@ -1,5 +1,5 @@
 "use client";
-import { Loader2, ClipboardList, Globe, Upload } from "lucide-react";
+import { Loader2, ClipboardList, Globe, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef, forwardRef } from "react";
 import type { ChangeEventHandler } from "react";
@@ -17,6 +17,8 @@ type ChatInputProps = {
   inputRef: React.RefObject<HTMLDivElement>;
   webSearchEnabled: boolean;
   onToggleWebSearch: () => void;
+  reasonEnabled: boolean;
+  onToggleReason: () => void;
 };
 
 export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
@@ -33,6 +35,8 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
       inputRef,
       webSearchEnabled,
       onToggleWebSearch,
+      reasonEnabled,
+      onToggleReason,
     },
     ref
   ) => {
@@ -79,7 +83,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
           )}
 
           <div className="flex gap-2">
-            {/* General File Upload Button */}
+            {/* Knowledge Base Upload Button */}
             <motion.div whileHover={{ scale: 1.05 }}>
               <Button
                 variant="outline"
@@ -87,9 +91,9 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading || isProcessingAssignment}
                 className="h-[44px] border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
-                title="Upload File"
+                title="Upload Knowledge Base"
               >
-                <Upload className="h-5 w-5" />
+                <Brain className="h-5 w-5" />
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -140,7 +144,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 className={`h-[44px] ${
                   webSearchEnabled 
                     ? "bg-blue-600 text-white" 
-                    : "border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                    : "border-blue-600 text-blue-600 hover:bg-black hover:text-white"
                 }`}
               >
                 <motion.div
@@ -149,6 +153,25 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 >
                   <Globe className="h-5 w-5" />
                 </motion.div>
+              </Button>
+            </motion.div>
+
+            {/* Reason Toggle - Text Version */}
+            <motion.div 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button
+                variant={reasonEnabled ? "default" : "outline"}
+                onClick={onToggleReason}
+                disabled={isLoading || isProcessingAssignment}
+                className={`h-[44px] px-3 ${
+                  reasonEnabled
+                    ? "bg-blue-600 text-white"
+                    : "border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                }`}
+              >
+                Reason
               </Button>
             </motion.div>
 

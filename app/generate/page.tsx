@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { UploadedFile, Message, Chat } from "@/lib/types";
 import { User } from "@supabase/supabase-js";
-import { Loader2, Plus, Trash2, ClipboardList, Upload } from "lucide-react";
+import { Loader2, Plus, Trash2, ClipboardList, Brain } from "lucide-react";
 import { extractTextFromPDF, extractTextFromTextOrDoc } from "@/lib/pdf-utils";
 import { jsPDF } from "jspdf";
 import mammoth from "mammoth";
@@ -15,6 +15,9 @@ import { MessageBubble } from "@/components/message-bubble";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { ChatInput } from "@/components/chat-input";
 import Head from "next/head";
+
+
+ 
 
 import {
   generateChatResponse,
@@ -47,6 +50,7 @@ export default function Home() {
   const [showInstructions, setShowInstructions] = useState(true);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [reasonEnabled, setReasonEnabled] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLDivElement>(null);
   const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
@@ -67,6 +71,10 @@ export default function Home() {
   const toggleWebSearch = () => {
     setWebSearchEnabled(!webSearchEnabled);
   };
+
+  const toggleReason = useCallback(() => {
+    setReasonEnabled((prev) => !prev);
+  }, []);
 
   const fetchChats = async (userId: string) => {
     const { data, error } = await supabase
@@ -456,10 +464,10 @@ export default function Home() {
       const fileContent = await readFileContent(file);
 
       // Extract guidelines and context first
-    const [guidelines, context] = await Promise.all([
-      extractAssignmentGuidelines(fileContent),
-      extractAssignmentContext(fileContent)
-    ]);
+      const [guidelines, context] = await Promise.all([
+        extractAssignmentGuidelines(fileContent),
+        extractAssignmentContext(fileContent),
+      ]);
 
       // Update chat with new file content
       const updatedFiles = selectedChat.files
@@ -529,8 +537,8 @@ export default function Home() {
       for (let i = 0; i < questions.length; i++) {
         setCurrentQuestionIndex(i);
         const answer = await generateAnswerForQuestion(
-          questions[i], 
-          guidelines, 
+          questions[i],
+          guidelines,
           context,
           fileContent // Pass full assignment content for reference
         );
@@ -745,7 +753,7 @@ export default function Home() {
   ) => {
     try {
       const baseContext = buildChatContext();
-      
+
       const prompt = `**Assignment Guidelines**:
   ${guidelines}
   
@@ -767,7 +775,7 @@ export default function Home() {
   3. If guidelines conflict with chat context, follow guidelines
   4. Maintain natural, human-like responses without markdown
   5. If unsure, ask clarifying questions but attempt solution`;
-  
+
       return webSearchEnabled
         ? generateAnswerWithWebSearch(prompt, question)
         : generateAnswerWithoutSearch(prompt, question);
@@ -891,6 +899,8 @@ export default function Home() {
               currentQuestionIndex={currentQuestionIndex}
               question={question}
               onQuestionChange={setQuestion}
+              reasonEnabled={reasonEnabled}
+              onToggleReason={toggleReason}
               onSend={askGemini}
               onAssignmentUpload={(e) => handleAssignmentUpload(e.target.files)}
               inputRef={inputRef}
