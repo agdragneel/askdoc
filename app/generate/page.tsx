@@ -15,9 +15,8 @@ import { MessageBubble } from "@/components/message-bubble";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { ChatInput } from "@/components/chat-input";
 import Head from "next/head";
-
-
- 
+import { marked } from "marked";
+import html2canvas from "html2canvas";
 
 import {
   generateChatResponse,
@@ -548,7 +547,7 @@ export default function Home() {
       }
 
       // Generate files
-      const pdfBlob = generatePDF(formattedAnswers);
+      const pdfBlob = await generatePDF(formattedAnswers);
       const docxBlob = await generateDOCX(formattedAnswers);
 
       // Upload to Supabase Storage
@@ -631,30 +630,92 @@ export default function Home() {
   };
 
   // Function to generate PDF with Times New Roman (Font Size 20)
-  const generatePDF = (text: string): Blob => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    const lineHeight = 7;
-    let yPos = 20;
 
-    doc.setFont("helvetica"); // More universal font
-    doc.setFontSize(12);
+  const generatePDF = async (text: string): Promise<Blob> => {
+    // Convert markdown to HTML with proper styling
+    const htmlContent = marked(text);
 
-    // Split text into lines that fit page width
-    const splitText = doc.splitTextToSize(text, pageWidth - margin * 2);
+    // Create a temporary container with PDF-friendly styles
+    const tempDiv = document.createElement("div");
+    tempDiv.style.position = "absolute";
+    tempDiv.style.left = "-9999px";
+    tempDiv.style.width = "210mm"; // A4 width
+    tempDiv.style.padding = "20px";
+    tempDiv.style.fontFamily = "Times New Roman, serif";
+    tempDiv.style.fontSize = "12pt";
+    tempDiv.style.lineHeight = "1.6";
+    tempDiv.innerHTML = `
+    <style>
+      h1 { font-size: 16pt; margin: 12pt 0; }
+      h2 { font-size: 14pt; margin: 10pt 0; }
+      strong { font-weight: bold; }
+      em { font-style: italic; }
+      ul, ol { margin: 10pt 0; padding-left: 20pt; }
+      li { margin: 4pt 0; }
+      p { margin: 8pt 0; }
+      code { font-family: Courier New, monospace; }
+    </style>
+    ${htmlContent}
+  `;
 
-    splitText.forEach((line: string) => {
-      if (yPos > doc.internal.pageSize.getHeight() - 20) {
-        doc.addPage();
-        yPos = 20;
+    document.body.appendChild(tempDiv);
+
+    try {
+      // Render HTML to canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      // Create PDF with proper dimensions
+      const doc = new jsPDF("p", "mm", "a4");
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const imgWidth = pageWidth - 20; // Account for margins
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let position = 10; // Start position with top margin
+      let remainingHeight = imgHeight;
+
+      // Add pages as needed
+      while (remainingHeight > 0) {
+        const sectionHeight = Math.min(remainingHeight, pageHeight - 20);
+        const canvasSection = document.createElement("canvas");
+        canvasSection.width = canvas.width;
+        canvasSection.height = (sectionHeight / imgHeight) * canvas.height;
+
+        const ctx = canvasSection.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(
+            canvas,
+            0,
+            (position - 10) * (canvas.height / imgHeight),
+            canvas.width,
+            canvasSection.height,
+            0,
+            0,
+            canvas.width,
+            canvasSection.height
+          );
+        }
+
+        const imgData = canvasSection.toDataURL("image/png");
+        doc.addImage(imgData, "PNG", 10, 10, imgWidth, sectionHeight);
+
+        remainingHeight -= sectionHeight;
+        position += sectionHeight;
+
+        if (remainingHeight > 0) {
+          doc.addPage();
+          position = 10;
+        }
       }
 
-      doc.text(line, margin, yPos);
-      yPos += lineHeight;
-    });
-
-    return doc.output("blob");
+      return doc.output("blob");
+    } finally {
+      document.body.removeChild(tempDiv);
+    }
   };
 
   // Function to generate DOCX
@@ -773,8 +834,7 @@ export default function Home() {
   1. Prioritize following the assignment guidelines explicitly
   2. Use context from both the assignment and chat history
   3. If guidelines conflict with chat context, follow guidelines
-  4. Maintain natural, human-like responses without markdown
-  5. If unsure, ask clarifying questions but attempt solution`;
+  4. Maintain natural, human-like responses.`;
 
       return webSearchEnabled
         ? generateAnswerWithWebSearch(prompt, question)
