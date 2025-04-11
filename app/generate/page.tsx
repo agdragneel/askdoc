@@ -17,6 +17,7 @@ import { ChatInput } from "@/components/chat-input";
 import Head from "next/head";
 import { marked } from "marked";
 import html2canvas from "html2canvas";
+import removeMarkdown from 'remove-markdown';
 
 import {
   generateChatResponse,
@@ -720,14 +721,18 @@ export default function Home() {
 
   // Function to generate DOCX
   const generateDOCX = async (text: string): Promise<Blob> => {
-    const paragraphs = text.split("\n\n").map(
-      (content) =>
-        new Paragraph({
-          children: [new TextRun(content)],
-          spacing: { after: 200 },
-        })
+    // Remove all markdown formatting from the input text
+    const cleanedText = removeMarkdown(text);
+    
+    // Split the cleaned text into paragraphs by two newline characters
+    const paragraphs = cleanedText.split("\n\n").map((content) =>
+      new Paragraph({
+        children: [new TextRun(content)],
+        spacing: { after: 200 },
+      })
     );
-
+  
+    // Create the document with the generated paragraphs
     const doc = new Document({
       sections: [
         {
@@ -736,7 +741,8 @@ export default function Home() {
         },
       ],
     });
-
+  
+    // Return the DOCX blob
     return Packer.toBlob(doc);
   };
 
