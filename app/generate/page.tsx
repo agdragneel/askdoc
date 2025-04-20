@@ -20,6 +20,7 @@ import html2canvas from "html2canvas";
 import removeMarkdown from 'remove-markdown';
 
 import {
+  generateChatTitle,
   generateChatResponse,
   extractQuestionsFromText,
   generateAnswerWithWebSearch,
@@ -27,7 +28,7 @@ import {
   generateChatResponseWithoutSearch,
   extractAssignmentContext,
   extractAssignmentGuidelines,
-} from "@/lib/gemini";
+} from "@/lib/claude";
 
 export default function Home() {
   const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -187,7 +188,7 @@ export default function Home() {
         if (updatedChat) {
           // Update title if still "New Chat"
           if (updatedChat.title === "New Chat" && processedFiles.length > 0) {
-            const newTitle = await generateTitle(
+            const newTitle = await generateChatTitle(
               processedFiles[0].name,
               processedFiles[0].content.slice(0, 500)
             );
@@ -217,7 +218,7 @@ export default function Home() {
       } else if (user) {
         // Create new chat with uploaded files
         setFiles(processedFiles);
-        const title = await generateTitle(
+        const title = await generateChatTitle(
           processedFiles[0]?.name || "New Chat",
           processedFiles[0]?.content || ""
         );
@@ -237,7 +238,7 @@ export default function Home() {
         if (data) {
           // Update title if generated title is still "New Chat"
           if (data.title === "New Chat" && processedFiles.length > 0) {
-            const newTitle = await generateTitle(
+            const newTitle = await generateChatTitle(
               processedFiles[0].name,
               processedFiles[0].content.slice(0, 500)
             );
@@ -315,7 +316,7 @@ export default function Home() {
 
       // Create new chat if needed (even without files)
       if (!chatId) {
-        const title = await generateTitle("Chat", question.slice(0, 100));
+        const title = await generateChatTitle("Chat", question.slice(0, 100));
         const { data } = await supabase
           .from("chats")
           .insert([
@@ -377,7 +378,7 @@ export default function Home() {
             ? files[0].content.slice(0, 500)
             : question.slice(0, 500);
 
-        const newTitle = await generateTitle(
+        const newTitle = await generateChatTitle(
           files.length > 0 ? files[0].name : "Chat",
           titleContent
         );
@@ -411,31 +412,7 @@ export default function Home() {
     }
   }, [question, files, messages, user, toast, selectedChat, webSearchEnabled]);
 
-  const generateTitle = async (fileName: string, content: string) => {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `Generate a concise title for a chat about ${fileName}. Content snippet: ${content.slice(
-                    0,
-                    500
-                  )}. Return only the title.`,
-                },
-              ],
-            },
-          ],
-        }),
-      }
-    );
-    const data = await response.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text || "New Chat";
-  };
+  
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -485,7 +462,7 @@ export default function Home() {
         // Update title if still "New Chat"
         if (selectedChat.title === "New Chat") {
           const fileName = file.name.replace(/\.[^/.]+$/, ""); // Remove extension
-          const newTitle = await generateTitle(
+          const newTitle = await generateChatTitle(
             fileName,
             fileContent.slice(0, 500)
           );
