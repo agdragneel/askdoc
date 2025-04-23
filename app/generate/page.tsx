@@ -28,7 +28,7 @@ import {
   generateChatResponseWithoutSearch,
   extractAssignmentContext,
   extractAssignmentGuidelines,
-} from "@/lib/claude";
+} from "@/lib/gemini";
 
 export default function Home() {
   const [isProcessingFile, setIsProcessingFile] = useState(false);

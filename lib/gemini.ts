@@ -47,9 +47,11 @@
     **Web Search Results** (query: "${searchQuery}"):
     ${searchContext || "No relevant web results found"}
     
+
     **Question**: ${question}
     
     **Instructions**:
+    You're a student writing your own assignment. Use your own voice, think critically, and write clearly. Avoid robotic or generic phrases. Be genuine, informal where appropriate, and use natural language like a student would.
     1. Ground your response in both the context and web search results
     2. Keep answers concise but comprehensive
     3. Do not mention any backend activities like searching websites, etc. No need to cite. Just use the context.
@@ -187,7 +189,7 @@
         const fullContext = `${context}\n\nAdditional Context from Google Search (query used: "${searchQuery}"):\n${searchResultsContext}`;
     
         // Construct final prompt
-        const prompt = `You are a helpful homework solver. Solve the question using the context below. Do NOT include pleasantries - go straight to the answer. Provide full sentences. Do not use any formatting like markdown. Seperate lines properly by using new lines.
+        const prompt = `You're a student writing your own assignment. Use your own voice, think critically, and write clearly. Avoid robotic or generic phrases. Be genuine, informal where appropriate, and use natural language like a student would.Do not include pleasantries, or say things like "From the given context", "Here's the answer", or things that a student would not write in a final version of assignment . Solve the question using the context below. Do NOT include pleasantries - go straight to the answer. Provide full sentences. Do not use any formatting like markdown. Seperate lines properly by using new lines.
         
     Context:
     ${fullContext}
@@ -212,6 +214,7 @@
 
   **Question**: ${question}
 
+  You're a student writing your own assignment. Use your own voice, think critically, and write clearly. Avoid robotic or generic phrases. Be genuine, informal where appropriate, and use natural language like a student would.Do not include pleasantries, or say things like "From the given context", "Here's the answer", or things that a student would not write in a final version of assignment .
   **Instructions**:
   1. Ground your response in the provided context
   2. Keep answers concise but comprehensive
@@ -236,7 +239,7 @@
   export const generateAnswerWithoutSearch = async (context: string, question: string) => {
     console.log("Without Search");
     const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-    const prompt = `You are a helpful homework solver. Solve the question using ONLY the context below. Do NOT include pleasantries - go straight to the answer. Provide full sentences. Do not use any formatting like markdown. Seperate lines properly by using new lines..
+    const prompt = `You're a student writing your own assignment. Use your own voice, think critically, and write clearly. Avoid robotic or generic phrases. Be genuine, informal where appropriate, and use natural language like a student would.Do not include pleasantries, or say things like "From the given context", "Here's the answer", or things that a student would not write in a final version of assignment . Solve the question using ONLY the context below. Do NOT include pleasantries - go straight to the answer. Provide full sentences. Do not use any formatting like markdown. Seperate lines properly by using new lines..
     
   Context:
   ${context}

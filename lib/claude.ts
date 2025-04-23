@@ -15,6 +15,7 @@ const callClaude = async (prompt: string) => {
     if (data.error) throw new Error(data.error);
     return data.reply || "No response generated";
   } catch (err) {
+    
     console.error(err);
     return "Error: Failed to get response from Claude.";
   }
