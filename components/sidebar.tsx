@@ -116,7 +116,7 @@ export function Sidebar({
                   {chat.title
                     ?.split(" ")
                     .map((word) => word[0])
-                    .join("")
+                    .join(" ")
                     .toUpperCase()
                     .slice(0, 2) || "C"}
                 </div>
@@ -145,25 +145,27 @@ export function Sidebar({
                   >
                     {confirmingDeleteId === chat.id ? (
                       <div className="flex gap-1">
+                        {/* ✅ Confirm Delete */}
                         <Button
                           variant="ghost"
                           size="icon"
                           className="p-1"
                           onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteChat(chat.id);
-                            setConfirmingDeleteId(null);
+                            e.stopPropagation(); // Prevent event from bubbling up
+                            onDeleteChat(chat.id); // Perform delete action
+                            setConfirmingDeleteId(null); // Reset confirmation state
                           }}
                         >
                           ✅
                         </Button>
+                        {/* ❌ Cancel Delete */}
                         <Button
                           variant="ghost"
                           size="icon"
                           className="p-1"
                           onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmingDeleteId(null);
+                            e.stopPropagation(); // Prevent event from bubbling up
+                            setConfirmingDeleteId(null); // Reset confirmation state
                           }}
                         >
                           ❌
@@ -175,8 +177,8 @@ export function Sidebar({
                         size="icon"
                         className="p-1 opacity-60 hover:opacity-100 transition-opacity"
                         onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmingDeleteId(chat.id);
+                          e.stopPropagation(); // Prevent event from bubbling up
+                          setConfirmingDeleteId(chat.id); // Set delete confirmation
                         }}
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
