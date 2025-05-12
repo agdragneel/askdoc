@@ -90,7 +90,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading || isProcessingAssignment}
-                className="h-[44px] border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                className="h-[44px] border-blue-600 rounded-full text-blue-600 hover:bg-blue-600 hover:text-white"
                 title="Upload Knowledge Base"
               >
                 <Brain className="h-5 w-5" />
@@ -112,7 +112,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 size="icon"
                 onClick={() => assignmentInputRef.current?.click()}
                 disabled={isLoading || isProcessingAssignment}
-                className="h-[44px] border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                className="h-[44px] border-blue-600 rounded-full text-blue-600 hover:bg-blue-600 hover:text-white"
                 title="Upload Assignment"
               >
                 {isProcessingAssignment ? (
@@ -143,8 +143,8 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 title="Toggle Web Search"
                 className={`h-[44px] ${
                   webSearchEnabled 
-                    ? "bg-blue-600 text-white" 
-                    : "border-blue-600 text-blue-600 hover:bg-black hover:text-white"
+                    ? "bg-blue-600 text-white rounded-full" 
+                    : "border-blue-600 text-blue-600 rounded-full hover:bg-black hover:text-white"
                 }`}
               >
                 <motion.div
@@ -167,8 +167,8 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 disabled={isLoading || isProcessingAssignment}
                 className={`h-[44px] px-3 ${
                   reasonEnabled
-                    ? "bg-blue-600 text-white"
-                    : "border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                    ? "bg-blue-600 text-white rounded-full"
+                    : "border-blue-600 text-blue-600 rounded-full hover:bg-blue-600 hover:text-white"
                 }`}
               >
                 Reason
@@ -185,10 +185,10 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 e.currentTarget.classList.toggle("empty", !text);
               }}
               onKeyDown={handleKeyDown}
-              className="flex-1 border rounded-lg p-2 bg-white dark:bg-gray-700 focus:outline-none
+              className="flex-1 border rounded-full p-2 bg-white dark:bg-gray-700 focus:outline-none
                         min-h-[44px] max-h-32 overflow-y-auto relative empty:before:content-[attr(placeholder)] 
                         empty:before:text-blue-400 empty:before:dark:text-blue-300 empty:before:absolute 
-                        empty:before:top-2 empty:before:left-2 empty:before:pointer-events-none"
+                        empty:before:top-2 empty:before:left-2 empty:before:pointer-events-none "
               placeholder="Type your question here..."
               suppressContentEditableWarning={true}
             />
@@ -198,7 +198,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
               <Button
                 onClick={onSend}
                 disabled={isLoading}
-                className="h-[44px] bg-blue-600 hover:bg-blue-700 text-white"
+                className="h-[44px] bg-blue-600 rounded-full hover:bg-blue-700 text-white"
               >
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
