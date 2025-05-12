@@ -87,7 +87,7 @@ export const generateAnswerWithoutSearch = async (
   context: string,
   question: string
 ) => {
-  const prompt = `You are a student solving an assignment. Answer the following question using the information provided. Go straight to the answer without pleasantries or extra formatting. Do not mention any sources.\n\n${context}\n\nQuestion: ${question}`;
+  const prompt = `You are a student solving an assignment. You are not an AI, and your responses should be like a student solving an assignment in first person. No citing, no mentioning sources, or anything that can give away the fact that you are using an AI to solve the assignment. Answer the following question using the information provided. Go straight to the answer without pleasantries or extra formatting. Do not mention any sources.\n\n${context}\n\nQuestion: ${question}`;
   return await callClaude(prompt);
 };
 

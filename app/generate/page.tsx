@@ -28,7 +28,7 @@ import {
   generateChatResponseWithoutSearch,
   extractAssignmentContext,
   extractAssignmentGuidelines,
-} from "@/lib/gemini";
+} from "@/lib/claude";
 
 export default function Home() {
   const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -865,7 +865,7 @@ export default function Home() {
   // HTML PART//
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800">
+    <div className="flex h-screen bg-white dark:bg-gray-800">
       <Head>
         <title>StudyBuddy</title>
       </Head>
@@ -883,12 +883,12 @@ export default function Home() {
         {selectedChat ? (
           <div className="flex flex-col h-full">
             {/* Chat Header with File Upload */}
-            <div className="p-4 border-b bg-white dark:bg-gray-800 flex justify-between items-center">
+            <div className="p-4 bg-gray-50 dark:bg-gray-700 flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-semibold text-blue-900 dark:text-blue-200">
+                <h2 className="text-xl font-semibold text-slate-900 dark:text-blue-200">
                   {selectedChat.title}
                 </h2>
-                <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                <p className="text-sm text-slate-600 dark:text-white-300 mt-1">
                   Created{" "}
                   {new Date(selectedChat.created_at).toLocaleDateString()}
                 </p>
@@ -930,7 +930,7 @@ export default function Home() {
             )}
 
             {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-300 dark:scrollbar-thumb-blue-600">
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-300 dark:scrollbar-thumb-blue-600 bg-gray-50 dark:bg-gray-700">
               <div className="p-4 space-y-4 min-h-full">
                 {messages.map((msg) => (
                   <MessageBubble
@@ -1005,7 +1005,7 @@ export default function Home() {
           </div>
         ) : (
           // New Empty State
-          <div className="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800">
+          <div className="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-4 bg-white dark:bg-gray-800">
             <div className="space-y-2 mb-8">
               <h2 className="text-2xl font-semibold text-blue-900 dark:text-blue-200">
                 Hi
