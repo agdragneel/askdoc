@@ -193,31 +193,53 @@ export function Sidebar({
       </div>
 
       {/* Logout */}
-      <motion.div
-        animate={{ opacity: collapsed ? 0 : 1 }}
-        className={clsx(
-          "mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700 transition-opacity",
-          collapsed && "pointer-events-none"
-        )}
+      
+<motion.div
+  animate={{ opacity: collapsed ? 0 : 1 }}
+  className={clsx(
+    "mt-4 pt-4 border-t border-gray-200 dark:border-zinc-700 transition-opacity",
+    collapsed && "pointer-events-none"
+  )}
+>
+  <div className="flex items-center justify-between px-2">
+    {/* User info - only shown when not collapsed */}
+    {!collapsed && (
+      <div className="flex items-center gap-2 overflow-hidden">
+        <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-800 text-blue-600 dark:text-blue-200 font-medium">
+          {user?.user_metadata?.full_name
+            ? user.user_metadata.full_name
+                .split(" ")
+                .map((n: string) => n[0])
+                .join("")
+            : "U"}
+        </div>
+        <span className="text-sm font-medium text-gray-800 dark:text-white truncate">
+          {user?.user_metadata?.full_name || "User"}
+        </span>
+      </div>
+    )}
+
+    {/* Circular logout button - always visible */}
+    <Button
+      onClick={onLogout}
+      variant="ghost"
+      size="icon"
+      className="rounded-full h-8 w-8 hover:bg-gray-200 dark:hover:bg-zinc-700"
+      title="Logout"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
       >
-        <Button
-          onClick={onLogout}
-          variant="ghost"
-          className="w-full flex items-center justify-start text-gray-800 dark:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-xl px-4 py-2"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5 mr-2"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-          </svg>
-          Logout
-        </Button>
-      </motion.div>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+      </svg>
+    </Button>
+  </div>
+</motion.div>
     </motion.div>
   );
 }
