@@ -43,7 +43,7 @@ export const MessageBubble = ({ msg, isCurrentUser }: MessageBubbleProps) => {
     <div className={`flex ${isCurrentUser ? "justify-end" : "justify-start"}`}>
       <div className={`flex flex-col ${isCurrentUser ? "items-end" : "items-start"} gap-1`}>
         <div className={`
-          max-w-xl p-4 rounded-[20px] /* Changed from rounded-full */
+          max-w-xl p-4 rounded-lg
           ${isCurrentUser ? "bg-blue-500 text-white" : "bg-slate-100 dark:bg-gray-800 border dark:border-gray-700"}
           space-y-2
         `}>

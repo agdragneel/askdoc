@@ -15,17 +15,16 @@ const callClaude = async (prompt: string) => {
     if (data.error) throw new Error(data.error);
     return data.reply || "No response generated";
   } catch (err) {
-    
     console.error(err);
     return "Error: Failed to get response from Claude.";
   }
 };
 
 export const generateChatTitle = async (fileName: string, content: string) => {
-  const prompt = `Create a concise title for a discussion about ${fileName}. Here’s a snippet: ${content.slice(
+  const prompt = `Create a concise title for a discussion about ${fileName}. Here's a snippet: ${content.slice(
     0,
     500
-  )}. Provide only the title.`;
+  )}. Provide only the title. Make the title intuitive.`;
   return await callClaude(prompt);
 };
 
@@ -60,9 +59,19 @@ export const generateChatResponse = async (
         .join("\n");
     }
 
-    const prompt = `Here is some information:\n${context}\n\nAdditional details:\n${
-      searchContext || "No additional information available"
-    }\n\nQuestion: ${question}\n\nAnswer directly, as if you were a student completing homework. Do not mention any sources or where the information came from. Keep it concise and in plain text.`;
+    const prompt = `You are a student solving an academic assignment. Provide a precise response to:
+    
+    Question: ${question}
+    Context: ${context}
+    Additional Information: ${searchContext || "None"}
+    
+    Requirements:
+    - Use formal academic language
+    - Maintain perfect formatting
+    - Do not mention sources or research methods
+    - Present complete answers without disclaimers
+    - Format data appropriately using markdown (tables when needed)
+    - Never reference any tools or AI`;
 
     return await callClaude(prompt);
   } catch (error) {
@@ -75,7 +84,19 @@ export const generateChatResponseWithoutSearch = async (
   context: string,
   question: string
 ) => {
-  const prompt = `Here is some information:\n${context}\n\nQuestion: ${question}\n\nAnswer directly, as if you were a student completing homework. Do not mention any sources or where the information came from. Keep it concise and in plain text.`;
+  const prompt = `You are a student completing an academic assignment. Compose a professional response to:
+  
+  Question: ${question}
+  Relevant Information: ${context}
+  
+  Guidelines:
+  - Answer directly and completely
+  - Use precise academic language
+  - Format perfectly using markdown (tables, paragraphs, etc.)
+  - Do not include any non-student identifiers
+  - Present as factual without methodological explanations
+  - Never use phrases like "based on research"`;
+
   return await callClaude(prompt);
 };
 
@@ -87,7 +108,20 @@ export const generateAnswerWithoutSearch = async (
   context: string,
   question: string
 ) => {
-  const prompt = `You are a student solving an assignment. You are not an AI, and your responses should be like a student solving an assignment in first person. No citing, no mentioning sources, or anything that can give away the fact that you are using an AI to solve the assignment. Answer the following question using the information provided. Go straight to the answer without pleasantries or extra formatting. Do not mention any sources.\n\n${context}\n\nQuestion: ${question}`;
+  const prompt = `You are a student solving an academic assignment. Provide a complete answer to:
+  
+  Question: ${question}
+  Context: ${context}
+  
+  Requirements:
+  - Use professional academic tone
+  - Present information authoritatively
+  - Format all data perfectly
+  - Do not reference any tools or processes
+  - Answer only what is asked
+  - Never indicate non-student origin
+  - Maintain consistent formal style`;
+
   return await callClaude(prompt);
 };
 
@@ -113,7 +147,19 @@ export const generateAnswerWithWebSearch = async (
         .join("\n\n");
     }
 
-    const prompt = `Here is some information:\n${context}\n\nAdditional details:\n${searchContext}\n\nQuestion: ${question}\n\nAnswer directly, as if you were a student. Do not mention any sources or search processes. Provide a clear, concise response in plain text.`;
+    const prompt = `You are a student completing academic work. Compose a thorough response to:
+    
+    Question: ${question}
+    Course Materials: ${context}
+    Additional References: ${searchContext}
+    
+    Instructions:
+    - Synthesize information professionally
+    - Present as authoritative academic work
+    - Use perfect formatting and structure
+    - Do not mention information sources
+    - Never indicate external research was conducted
+    - Maintain student perspective consistently`;
 
     return await callClaude(prompt);
   } catch (error) {
