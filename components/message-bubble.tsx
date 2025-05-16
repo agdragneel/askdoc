@@ -2,40 +2,117 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Message } from "@/lib/types";
-import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
+import { Copy, FileText, FileCode } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Document, Packer, Paragraph, TextRun } from "docx";
+import { jsPDF } from "jspdf";
+import { extractTextFromPDF, extractTextFromTextOrDoc } from "@/lib/pdf-utils";
+import removeMarkdown from 'remove-markdown';
 
 interface MessageBubbleProps {
   msg: Message;
   isCurrentUser: boolean;
 }
 
+
+
 export const MessageBubble = ({ msg, isCurrentUser }: MessageBubbleProps) => {
-  const handleDownload = async (filePath: string, fileName: string) => {
+  const { toast } = useToast();
+
+  const handleCopy = async () => {
     try {
-      const pathParts = filePath.split('assignments/');
-      if (pathParts.length < 2) throw new Error("Invalid file path");
+      const plainText = removeMarkdown(msg.content);
+      await navigator.clipboard.writeText(plainText);
+      toast({
+        title: "Copied to clipboard!",
+        variant: "success",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy failed",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const generatePlainPDF = async (markdown: string): Promise<Blob> => {
+      // 1. Strip out markdown syntax
+      const text = removeMarkdown(markdown);
+    
+      // 2. Set up jsPDF for A4
+      const doc = new jsPDF("p", "mm", "a4");
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+    
+      // Margins
+      const margin = 10; // mm
+      const maxLineWidth = pageWidth - margin * 2;
+      const lineHeight = 7; // mm per line
+      let cursorY = margin;
+    
+      // 3. Split into lines that fit the width
+      const lines = doc.splitTextToSize(text, maxLineWidth);
+    
+      // 4. Render line by line, adding pages as needed
+      for (const line of lines) {
+        if (cursorY + lineHeight > pageHeight - margin) {
+          doc.addPage();
+          cursorY = margin;
+        }
+        doc.text(line, margin, cursorY);
+        cursorY += lineHeight;
+      }
+    
+      // 5. Output as Blob
+      return doc.output("blob");
+    };
+
+  const generateDOCX = async (text: string): Promise<Blob> => {
+      // Remove all markdown formatting from the input text
+      const cleanedText = removeMarkdown(text);
       
-      const fullPath = pathParts[1];
-      const { data, error } = await supabase.storage
-        .from('assignments')
-        .download(fullPath);
+      // Split the cleaned text into paragraphs by two newline characters
+      const paragraphs = cleanedText.split("\n\n").map((content) =>
+        new Paragraph({
+          children: [new TextRun(content)],
+          spacing: { after: 200 },
+        })
+      );
+    
+      // Create the document with the generated paragraphs
+      const doc = new Document({
+        sections: [
+          {
+            properties: {},
+            children: paragraphs,
+          },
+        ],
+      });
+    
+      // Return the DOCX blob
+      return Packer.toBlob(doc);
+    };
 
-      if (error) throw error;
-      if (!data) throw new Error("File not found");
 
-      const url = window.URL.createObjectURL(data);
+
+  const handleDownload = async (generator: (content: string) => Promise<Blob>, ext: string) => {
+    try {
+      const blob = await generator(msg.content);
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = fileName;
+      link.download = `message-${msg.id.slice(0, 6)}.${ext}`;
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(link);
     } catch (error) {
-      console.error('Download error:', error);
-      alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast({
+        title: `Failed to generate ${ext.toUpperCase()}`,
+        description: "Please try again",
+        variant: "destructive",
+      });
     }
   };
 
@@ -78,18 +155,37 @@ export const MessageBubble = ({ msg, isCurrentUser }: MessageBubbleProps) => {
             </ReactMarkdown>
           </div>
 
-          {msg.attachments?.map((att, idx) => (
-            <div key={idx} className="mt-2">
-              <Button
-                variant="outline"
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-                onClick={() => handleDownload(att.data, att.name)}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download {att.type.toUpperCase()}
-              </Button>
-            </div>
-          ))}
+          {/* Action Icons */}
+          
+<div className="flex items-center gap-2 mt-2">
+  {!isCurrentUser && (
+    <>
+      <button
+        onClick={handleCopy}
+        className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+        title="Copy to clipboard"
+      >
+        <Copy className="h-4 w-4" />
+      </button>
+
+      <button
+        onClick={() => handleDownload(generateDOCX, 'docx')}
+        className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+        title="Download as DOCX"
+      >
+        <FileText className="h-4 w-4" />
+      </button>
+      <button
+        onClick={() => handleDownload(generatePlainPDF, 'pdf')}
+        className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+        title="Download as PDF"
+      >
+        <FileCode className="h-4 w-4" />
+      </button>
+    </>
+  )}
+</div>
+
         </div>
 
         <p className={`text-xs opacity-70 ${isCurrentUser ? "pr-2" : "pl-2"}`}>

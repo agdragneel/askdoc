@@ -44,7 +44,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === "Enter" && !e.shiftKey && !isLoading) {
+      if (e.key === "Enter" && !e.shiftKey && (!isLoading && !isProcessingAssignment)) {
         e.preventDefault();
         onSend();
         if (inputRef.current) {
@@ -176,7 +176,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
             {/* Input Field */}
             <div
               ref={inputRef}
-              contentEditable={!isLoading}
+              contentEditable={(!isLoading && !isProcessingAssignment)}
               onInput={(e) => {
                 const text = e.currentTarget.textContent || "";
                 onQuestionChange(text);
@@ -187,8 +187,8 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                           min-h-[44px] max-h-32 overflow-y-auto relative empty:before:content-[attr(placeholder)] 
                           empty:before:text-slate-400 empty:before:dark:text-slate-300 empty:before:absolute 
                           empty:before:top-2 empty:before:left-2 empty:before:pointer-events-none 
-                          ${isLoading ? "pointer-events-none opacity-50" : ""}`}
-              placeholder={isLoading ? "Processing..." : "Type your question here..."}
+                          ${(isLoading || isProcessingAssignment) ? "pointer-events-none opacity-50" : ""}`}
+              placeholder={ (isLoading || isProcessingAssignment) ? "Processing..." : "Type your question here..."}
               suppressContentEditableWarning={true}
             />
 
@@ -196,7 +196,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
             <motion.div whileHover={{ scale: 1.05 }}>
               <Button
                 onClick={() => {
-                  if (!isLoading) {
+                  if ((!isLoading && !isProcessingAssignment)) {
                     onSend();
                     if (inputRef.current) {
                       inputRef.current.innerText = "";
@@ -204,7 +204,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                     }
                   }
                 }}
-                disabled={isLoading}
+                disabled={isLoading || isProcessingAssignment}
                 className="h-[44px] bg-slate-800 rounded-full hover:bg-slate-900 text-white"
               >
                 {isLoading ? (
