@@ -25,7 +25,7 @@ export const MessageBubble = ({ msg, isCurrentUser }: MessageBubbleProps) => {
       await navigator.clipboard.writeText(plainText);
       toast({
         title: "Copied to clipboard!",
-        variant: "success",
+        variant: "default",
       });
     } catch (error) {
       toast({
