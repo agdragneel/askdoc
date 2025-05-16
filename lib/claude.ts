@@ -71,7 +71,10 @@ export const generateChatResponse = async (
     - Do not mention sources or research methods
     - Present complete answers without disclaimers
     - Format data appropriately using markdown (tables when needed)
-    - Never reference any tools or AI`;
+    - Never reference any tools or AI
+    - Do not say things that can give away you are an AI, like "According to the Supplementary Inforamtion", or  "The supplementary information appears unrelated to the .."
+    -Do not include information that is not relevant. If asked short questions, answer in short.
+    .`;
 
     return await callClaude(prompt);
   } catch (error) {
@@ -95,7 +98,9 @@ export const generateChatResponseWithoutSearch = async (
   - Format perfectly using markdown (tables, paragraphs, etc.)
   - Do not include any non-student identifiers
   - Present as factual without methodological explanations
-  - Never use phrases like "based on research"`;
+  - Never use phrases like "based on research"
+  - Do not say things that can give away you are an AI, like "According to the Supplementary Inforamtion", or  "The supplementary information appears unrelated to the .."
+  -Do not include information that is not relevant. If asked short questions, answer in short.`;
 
   return await callClaude(prompt);
 };
@@ -120,7 +125,9 @@ export const generateAnswerWithoutSearch = async (
   - Do not reference any tools or processes
   - Answer only what is asked
   - Never indicate non-student origin
-  - Maintain consistent formal style`;
+  - Maintain consistent formal style
+  - Do not say things that can give away you are an AI, like "According to the Supplementary Inforamtion", or  "The supplementary information appears unrelated to the .."
+  -Do not include information that is not relevant. If asked short questions, answer in short.`;
 
   return await callClaude(prompt);
 };
@@ -159,7 +166,9 @@ export const generateAnswerWithWebSearch = async (
     - Use perfect formatting and structure
     - Do not mention information sources
     - Never indicate external research was conducted
-    - Maintain student perspective consistently`;
+    - Maintain student perspective consistently
+    - Do not say things that can give away you are an AI, like "According to the Supplementary Inforamtion", or  "The supplementary information appears unrelated to the .."
+    -Do not include information that is not relevant. If asked short questions, answer in short.`;
 
     return await callClaude(prompt);
   } catch (error) {

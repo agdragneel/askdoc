@@ -44,9 +44,13 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
+      if (e.key === "Enter" && !e.shiftKey && !isLoading) {
         e.preventDefault();
         onSend();
+        if (inputRef.current) {
+          inputRef.current.innerText = "";
+          inputRef.current.classList.add("empty");
+        }
       }
     };
 
@@ -131,10 +135,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
             </motion.div>
 
             {/* Web Search Toggle */}
-            <motion.div 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 variant="outline"
                 size="icon"
@@ -142,8 +143,8 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 disabled={isLoading || isProcessingAssignment}
                 title="Toggle Web Search"
                 className={`h-[44px] ${
-                  webSearchEnabled 
-                    ? "bg-slate-600 text-white rounded-full" 
+                  webSearchEnabled
+                    ? "bg-slate-600 text-white rounded-full"
                     : "border-slate-600 text-slate-600 rounded-full hover:bg-slate-600 hover:text-white"
                 }`}
               >
@@ -156,11 +157,8 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
               </Button>
             </motion.div>
 
-            {/* Reason Toggle - Text Version */}
-            <motion.div 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
+            {/* Reason Toggle */}
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Button
                 variant={reasonEnabled ? "default" : "outline"}
                 onClick={onToggleReason}
@@ -178,25 +176,34 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
             {/* Input Field */}
             <div
               ref={inputRef}
-              contentEditable
+              contentEditable={!isLoading}
               onInput={(e) => {
                 const text = e.currentTarget.textContent || "";
                 onQuestionChange(text);
                 e.currentTarget.classList.toggle("empty", !text);
               }}
               onKeyDown={handleKeyDown}
-              className="flex-1 border rounded-lg p-2 bg-white dark:bg-gray-700 focus:outline-none
-                        min-h-[44px] max-h-32 overflow-y-auto relative empty:before:content-[attr(placeholder)] 
-                        empty:before:text-slate-400 empty:before:dark:text-slate-300 empty:before:absolute 
-                        empty:before:top-2 empty:before:left-2 empty:before:pointer-events-none "
-              placeholder="Type your question here..."
+              className={`flex-1 border rounded-lg p-2 bg-white dark:bg-gray-700 focus:outline-none
+                          min-h-[44px] max-h-32 overflow-y-auto relative empty:before:content-[attr(placeholder)] 
+                          empty:before:text-slate-400 empty:before:dark:text-slate-300 empty:before:absolute 
+                          empty:before:top-2 empty:before:left-2 empty:before:pointer-events-none 
+                          ${isLoading ? "pointer-events-none opacity-50" : ""}`}
+              placeholder={isLoading ? "Processing..." : "Type your question here..."}
               suppressContentEditableWarning={true}
             />
 
             {/* Send Button */}
             <motion.div whileHover={{ scale: 1.05 }}>
               <Button
-                onClick={onSend}
+                onClick={() => {
+                  if (!isLoading) {
+                    onSend();
+                    if (inputRef.current) {
+                      inputRef.current.innerText = "";
+                      inputRef.current.classList.add("empty");
+                    }
+                  }
+                }}
                 disabled={isLoading}
                 className="h-[44px] bg-slate-800 rounded-full hover:bg-slate-900 text-white"
               >
