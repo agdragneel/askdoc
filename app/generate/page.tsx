@@ -7,7 +7,11 @@ import { useToast } from "@/hooks/use-toast";
 import { UploadedFile, Message, Chat } from "@/lib/types";
 import { User } from "@supabase/supabase-js";
 import { Loader2, Plus, Trash2, ClipboardList, Brain } from "lucide-react";
-import { extractTextFromPDF, extractTextFromTextOrDoc } from "@/lib/pdf-utils";
+import {
+  extractTextFromPDF,
+  extractTextFromTextOrDoc,
+  extractTextFromPPTX,
+} from "@/lib/pdf-utils";
 import { jsPDF } from "jspdf";
 import mammoth from "mammoth";
 import { Sidebar } from "@/components/sidebar";
@@ -17,7 +21,7 @@ import { ChatInput } from "@/components/chat-input";
 import Head from "next/head";
 import { marked } from "marked";
 import html2canvas from "html2canvas";
-import removeMarkdown from 'remove-markdown';
+import removeMarkdown from "remove-markdown";
 
 import {
   generateChatTitle,
@@ -412,8 +416,6 @@ export default function Home() {
     }
   }, [question, files, messages, user, toast, selectedChat, webSearchEnabled]);
 
-  
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -527,7 +529,6 @@ export default function Home() {
       // Generate files
       const pdfBlob = await generatePlainPDF(formattedAnswers);
       const docxBlob = await generateDOCX(formattedAnswers);
-      
 
       // Upload to Supabase Storage
       const storage = supabase.storage.from("assignments");
@@ -700,21 +701,21 @@ export default function Home() {
   const generatePlainPDF = async (markdown: string): Promise<Blob> => {
     // 1. Strip out markdown syntax
     const text = removeMarkdown(markdown);
-  
+
     // 2. Set up jsPDF for A4
     const doc = new jsPDF("p", "mm", "a4");
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-  
+
     // Margins
     const margin = 10; // mm
     const maxLineWidth = pageWidth - margin * 2;
     const lineHeight = 7; // mm per line
     let cursorY = margin;
-  
+
     // 3. Split into lines that fit the width
     const lines = doc.splitTextToSize(text, maxLineWidth);
-  
+
     // 4. Render line by line, adding pages as needed
     for (const line of lines) {
       if (cursorY + lineHeight > pageHeight - margin) {
@@ -724,25 +725,25 @@ export default function Home() {
       doc.text(line, margin, cursorY);
       cursorY += lineHeight;
     }
-  
+
     // 5. Output as Blob
     return doc.output("blob");
   };
 
-  
   // Function to generate DOCX
   const generateDOCX = async (text: string): Promise<Blob> => {
     // Remove all markdown formatting from the input text
     const cleanedText = removeMarkdown(text);
-    
+
     // Split the cleaned text into paragraphs by two newline characters
-    const paragraphs = cleanedText.split("\n\n").map((content) =>
-      new Paragraph({
-        children: [new TextRun(content)],
-        spacing: { after: 200 },
-      })
+    const paragraphs = cleanedText.split("\n\n").map(
+      (content) =>
+        new Paragraph({
+          children: [new TextRun(content)],
+          spacing: { after: 200 },
+        })
     );
-  
+
     // Create the document with the generated paragraphs
     const doc = new Document({
       sections: [
@@ -752,7 +753,7 @@ export default function Home() {
         },
       ],
     });
-  
+
     // Return the DOCX blob
     return Packer.toBlob(doc);
   };
@@ -762,6 +763,12 @@ export default function Home() {
     try {
       if (file.type === "application/pdf") {
         return await extractTextFromPDF(file);
+      } else if (
+        file.type === "application/vnd.ms-powerpoint" ||
+        file.type ===
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      ) {
+        return await extractTextFromPPTX(file);
       } else if (
         file.type ===
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -800,6 +807,14 @@ export default function Home() {
 
         if (file.type === "application/pdf") {
           content = await extractTextFromPDF(file);
+        }
+        // Add PowerPoint handling
+        else if (
+          file.type === "application/vnd.ms-powerpoint" ||
+          file.type ===
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        ) {
+          content = await extractTextFromPPTX(file);
         } else {
           content = await extractTextFromTextOrDoc(file);
         }

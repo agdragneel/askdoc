@@ -102,7 +102,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                   type="file"
                   ref={fileInputRef}
                   className="hidden"
-                  accept=".pdf,.doc,.docx,.txt"
+                  accept=".pdf,.doc,.docx,.txt,.ppt,.pptx"
                   onChange={handleFileChange}
                   multiple
                 />
