@@ -95,7 +95,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading || isProcessingAssignment}
                 className="h-[44px] border-slate-600 rounded-full text-slate-600 hover:bg-slate-600 hover:text-white"
-                title="Upload Knowledge Base"
+                title="Upload Lectures Notes"
               >
                 <Brain className="h-5 w-5" />
                 <input
@@ -117,7 +117,7 @@ export const ChatInput = forwardRef<HTMLDivElement, ChatInputProps>(
                 onClick={() => assignmentInputRef.current?.click()}
                 disabled={isLoading || isProcessingAssignment}
                 className="h-[44px] border-slate-600 rounded-full text-slate-600 hover:bg-slate-600 hover:text-white"
-                title="Upload Assignment"
+                title="Upload Project"
               >
                 {isProcessingAssignment ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
